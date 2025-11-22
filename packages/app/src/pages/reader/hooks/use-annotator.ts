@@ -5,6 +5,7 @@ import { useAppSettingsStore } from "@/store/app-settings-store";
 import type { HighlightColor, HighlightStyle } from "@/types/book";
 import type { BookMeta } from "@/types/note";
 import { type Position, type TextSelection, getPopupPosition, getPosition } from "@/utils/sel";
+import { getTargetLang } from "@/utils/misc"; // 获取环境默认的翻译目标语言
 import { useQueryClient } from "@tanstack/react-query";
 import * as CFI from "foliate-js/epubcfi.js";
 import { useCallback, useEffect, useState } from "react";
@@ -208,6 +209,15 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
     iframeService.sendExplainTextRequest(selection.text, "explain", bookId);
   }, [selection, bookId]);
 
+  const handleTranslate = useCallback(() => { // 处理翻译请求
+    if (!selection || !selection.text) return; // 无选中内容时退出
+    const configuredLang = settings.globalReadSettings.translateTargetLang?.trim(); // 获取用户配置的目标语言
+    const targetLang = configuredLang || getTargetLang(); // 使用配置或根据环境推断语言
+    const question = targetLang ? `请将引用内容翻译成${targetLang}` : "请翻译这段内容"; // 构造翻译提问
+    iframeService.sendAskAIRequest(selection.text, question, bookId); // 复用 AI 询问入口发送请求
+    handleDismissPopupAndSelection(); // 发送后关闭弹窗并清理选区
+  }, [selection, settings.globalReadSettings.translateTargetLang, bookId, handleDismissPopupAndSelection]);
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   const handleAskAI = useCallback(() => {
     if (!selection || !selection.text) return;
@@ -333,6 +343,7 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
     handleHighlight,
     addNote,
     handleExplain,
+    handleTranslate, // 暴露翻译按钮对应的处理函数
     handleAskAI,
     handleCloseAskAI,
     handleSendAIQuery,

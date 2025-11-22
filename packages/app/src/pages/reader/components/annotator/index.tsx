@@ -2,7 +2,7 @@ import { HIGHLIGHT_COLOR_HEX } from "@/services/constants";
 import { useAppSettingsStore } from "@/store/app-settings-store";
 import type { BookNote } from "@/types/book";
 import { Overlayer } from "foliate-js/overlayer.js";
-import { NotebookPen } from "lucide-react";
+import { Languages, NotebookPen } from "lucide-react"; // 引入翻译按钮图标
 import type React from "react";
 import { useEffect } from "react";
 import { FiCopy, FiHelpCircle, FiMessageCircle } from "react-icons/fi";
@@ -44,6 +44,7 @@ const Annotator: React.FC = () => {
     handleHighlight,
     addNote,
     handleExplain,
+    handleTranslate, // 使用 hook 提供的翻译处理函数
     handleAskAI,
     handleCloseAskAI,
     handleSendAIQuery,
@@ -115,6 +116,7 @@ const Annotator: React.FC = () => {
   const buttons = [
     { label: "复制", Icon: FiCopy, onClick: handleCopy },
     { label: "解释", Icon: FiHelpCircle, onClick: handleExplain },
+    { label: "翻译", Icon: Languages, onClick: handleTranslate }, // 新增翻译按钮
     { label: "询问AI", Icon: FiMessageCircle, onClick: handleAskAI },
     {
       label: undefined,
