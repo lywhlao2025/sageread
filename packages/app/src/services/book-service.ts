@@ -23,7 +23,7 @@ import { partialMD5 } from "@/utils/md5";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { appDataDir, tempDir } from "@tauri-apps/api/path";
 import { join } from "@tauri-apps/api/path";
-import { writeFile } from "@tauri-apps/plugin-fs";
+import { writeFile, readFile } from "@tauri-apps/plugin-fs";
 
 export async function uploadBook(file: File): Promise<SimpleBook> {
   try {
@@ -38,12 +38,20 @@ export async function uploadBook(file: File): Promise<SimpleBook> {
     const tempFilePath = await join(tempDirPath, tempFileName);
     const fileData = await file.arrayBuffer();
     await writeFile(tempFilePath, new Uint8Array(fileData));
-    const metadata = await extractMetadataOnly(file);
+    let metadata = await extractMetadataOnly(file);
+    let finalFormat: SimpleBook["format"] = format;
+    let finalTempFilePath = tempFilePath;
+    let finalFileSize = file.size;
+    let finalFileName = file.name;
 
     let coverTempFilePath: string | undefined;
-    if (format === "EPUB") {
+    if (finalFormat === "EPUB") {
       try {
-        const bookDoc = await parseEpubFile(fileData, file.name);
+        const dataForCover = finalFormat === "EPUB" && finalTempFilePath !== tempFilePath ? await readFile(finalTempFilePath) : fileData;
+        const bookDoc = await parseEpubFile(
+          dataForCover instanceof ArrayBuffer ? dataForCover : (dataForCover as Uint8Array).buffer,
+          finalFileName,
+        );
         const coverBlob = await bookDoc.getCover();
         if (coverBlob) {
           const coverTempFileName = `cover_${bookHash}.jpg`;
@@ -61,10 +69,10 @@ export async function uploadBook(file: File): Promise<SimpleBook> {
       id: bookHash,
       title: formatTitle(metadata.title) || getFileNameWithoutExt(file.name),
       author: formatAuthors(metadata.author) || "Unknown",
-      format,
-      fileSize: file.size,
+      format: finalFormat,
+      fileSize: finalFileSize,
       language: getPrimaryLanguage(metadata.language) || "en",
-      tempFilePath: tempFilePath,
+      tempFilePath: finalTempFilePath,
       coverTempFilePath,
       metadata: metadata,
     };

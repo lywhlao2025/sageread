@@ -11,6 +11,7 @@ import { useFoliateViewer } from "../hooks/use-foliate-viewer";
 import Annotator from "./annotator";
 import FooterBar from "./footer-bar";
 import HeaderBar from "./header-bar";
+import PdfViewer from "./pdf-viewer";
 import { useReaderStore, useReaderStoreApi } from "./reader-provider";
 
 const ReaderViewerContent: React.FC = () => {
@@ -66,6 +67,7 @@ export default function ReaderViewer() {
   const config = useReaderStore((state) => state.config);
   const isLoading = useReaderStore((state) => state.isLoading);
   const error = useReaderStore((state) => state.error);
+  const isPdf = bookData?.book?.format === "PDF";
 
   const { settings } = useAppSettingsStore();
   const { booksWithStatus } = useLibraryStore();
@@ -116,9 +118,17 @@ export default function ReaderViewer() {
   return (
     <div id={`gridcell-${bookId}`} className="relative flex h-full w-full flex-col rounded-md bg-background">
       <HeaderBar />
-      <ReaderViewerContent />
-      <FooterBar />
-      <Annotator />
+      {isPdf && bookData.file ? (
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <PdfViewer file={bookData.file} bookId={bookId!} />
+        </div>
+      ) : (
+        <>
+          <ReaderViewerContent />
+          <FooterBar />
+          <Annotator />
+        </>
+      )}
     </div>
   );
 }

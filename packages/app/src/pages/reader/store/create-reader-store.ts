@@ -88,8 +88,14 @@ export const createReaderStore = (bookId: string) => {
 
         const arrayBuffer = await response.arrayBuffer();
         const filename = simpleBook.filePath.split("/").pop() || "book.epub";
+        const mimeType =
+          simpleBook.format === "PDF"
+            ? "application/pdf"
+            : simpleBook.format === "CBZ"
+              ? "application/vnd.comicbook+zip"
+              : "application/epub+zip";
         const file = new File([arrayBuffer], filename, {
-          type: "application/epub+zip",
+          type: mimeType,
         });
 
         const book = {

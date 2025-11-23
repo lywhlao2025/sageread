@@ -189,6 +189,23 @@ export class DocumentLoader {
     if (!this.file.size) {
       throw new Error("File is empty");
     }
+    if (await this.isPDF()) {
+      const title = this.file.name.replace(/\.[^/.]+$/, "");
+      book = {
+        metadata: {
+          title: title || "Untitled PDF",
+          author: "",
+          language: "en",
+        },
+        dir: "ltr",
+        toc: [],
+        sections: [],
+        splitTOCHref: (href: string) => [href],
+        getCover: async () => null,
+      };
+      format = "PDF";
+      return { book, format } as { book: BookDoc; format: BookFormat };
+    }
     if (await this.isZip()) {
       const loader = await this.makeZipLoader();
       const { entries } = loader;
@@ -217,6 +234,9 @@ export class DocumentLoader {
       const { makeFB2 } = await import("foliate-js/fb2.js");
       book = await makeFB2(this.file);
       format = "FB2";
+    }
+    if (!book) {
+      throw new Error("Unsupported file format");
     }
     return { book, format } as { book: BookDoc; format: BookFormat };
   }
