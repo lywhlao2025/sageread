@@ -56,7 +56,7 @@ jobs:
       - name: Build and Release
         uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
           TAURI_SKIP_SIDECAR_SIGNATURE_CHECK: true
         with:
           projectPath: './packages/app'
