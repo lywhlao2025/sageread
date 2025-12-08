@@ -23,6 +23,8 @@ export function createProviderInstance(config: ProviderConfig) {
       return createDeepSeek({
         apiKey: apiKey || "",
         baseURL: baseUrl,
+        // Use Tauri HTTP to avoid browser CORS in desktop app
+        fetch: fetchTauri,
       });
 
     case "openrouter":
