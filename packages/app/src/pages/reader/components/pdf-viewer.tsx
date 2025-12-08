@@ -72,6 +72,8 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
   // 监听选区，定位弹窗
   useEffect(() => {
     const handleSelection = () => {
+      if (showAskAIPopup) return;
+
       const sel = window.getSelection();
       if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
         setPopupPos(null);
@@ -116,7 +118,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
       document.removeEventListener("selectionchange", handleSelection);
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, []);
+  }, [showAskAIPopup]);
 
   const handleExplain = () => {
     if (!selectedText) return;
