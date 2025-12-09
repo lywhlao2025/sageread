@@ -56,50 +56,68 @@ pub async fn update_note(app_handle: AppHandle, data: UpdateNoteData) -> Result<
     let db_pool = get_db_pool(&app_handle).await?;
     let now = chrono::Utc::now().timestamp_millis();
 
-    // 构建动态更新查询
-    let mut has_updates = false;
-    let mut query_builder = sqlx::QueryBuilder::new("UPDATE notes SET ");
-    let mut separated = query_builder.separated(", ");
+    // 先取当前值，未提供的字段沿用旧值
+    let current = sqlx::query(
+        r#"
+        SELECT book_id, book_meta, title, content
+        FROM notes
+        WHERE id = ?
+        "#,
+    )
+    .bind(&data.id)
+    .fetch_optional(&db_pool)
+    .await
+    .map_err(|e| format!("查询笔记失败: {}", e))?;
 
-    if let Some(book_id_opt) = &data.book_id {
-        has_updates = true;
-        separated.push("book_id = ").push_bind(book_id_opt.clone());
+    if current.is_none() {
+        return Err("笔记不存在".to_string());
     }
 
-    if let Some(book_meta_opt) = &data.book_meta {
-        has_updates = true;
-        let book_meta_json = if let Some(ref meta) = book_meta_opt {
-            Some(serde_json::to_string(meta).map_err(|e| format!("序列化书籍信息失败: {}", e))?)
-        } else {
-            None
-        };
-        separated.push("book_meta = ").push_bind(book_meta_json);
-    }
+    use sqlx::Row;
+    let row = current.unwrap();
+    let current_book_id: Option<String> = row.try_get("book_id").unwrap_or(None);
+    let current_book_meta_str: Option<String> = row.try_get("book_meta").unwrap_or(None);
+    let current_book_meta: Option<BookMeta> =
+        current_book_meta_str.and_then(|s| serde_json::from_str(&s).ok());
+    let current_title: Option<String> = row.try_get("title").unwrap_or(None);
+    let current_content: Option<String> = row.try_get("content").unwrap_or(None);
 
-    if let Some(title_opt) = &data.title {
-        has_updates = true;
-        separated.push("title = ").push_bind(title_opt.clone());
-    }
+    let final_book_id = data.book_id.clone().flatten().or(current_book_id);
+    let final_book_meta = if let Some(ref meta_opt) = data.book_meta {
+        meta_opt.clone()
+    } else {
+        current_book_meta
+    };
 
-    if let Some(content_opt) = &data.content {
-        has_updates = true;
-        separated.push("content = ").push_bind(content_opt.clone());
-    }
+    let book_meta_json = final_book_meta
+        .as_ref()
+        .map(|meta| serde_json::to_string(meta).map_err(|e| format!("序列化书籍信息失败: {}", e)))
+        .transpose()?;
 
-    if !has_updates {
-        return Err("没有需要更新的字段".to_string());
-    }
+    let final_title = data.title.clone().flatten().or(current_title);
+    let final_content = data.content.clone().flatten().or(current_content);
 
-    separated.push("updated_at = ").push_bind(now);
-
-    query_builder.push(" WHERE id = ").push_bind(&data.id);
-
-    let query = query_builder.build();
-
-    let result = query
-        .execute(&db_pool)
-        .await
-        .map_err(|e| format!("更新笔记失败: {}", e))?;
+    let result = sqlx::query(
+        r#"
+        UPDATE notes
+        SET
+            book_id = ?,
+            book_meta = ?,
+            title = ?,
+            content = ?,
+            updated_at = ?
+        WHERE id = ?
+        "#,
+    )
+    .bind(final_book_id)
+    .bind(book_meta_json)
+    .bind(final_title)
+    .bind(final_content)
+    .bind(now)
+    .bind(&data.id)
+    .execute(&db_pool)
+    .await
+    .map_err(|e| format!("更新笔记失败: {}", e))?;
 
     if result.rows_affected() == 0 {
         return Err("笔记不存在".to_string());

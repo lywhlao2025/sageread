@@ -4,7 +4,7 @@ import type { BookNote } from "@/types/book";
 import { Overlayer } from "foliate-js/overlayer.js";
 import { Languages, NotebookPen } from "lucide-react"; // 引入翻译按钮图标
 import type React from "react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { FiCopy, FiHelpCircle, FiMessageCircle } from "react-icons/fi";
 import { PiHighlighterFill } from "react-icons/pi";
 import { RiDeleteBinLine } from "react-icons/ri";
@@ -113,6 +113,15 @@ const Annotator: React.FC = () => {
   }, [showAnnotPopup, showAskAIPopup]);
 
   const selectionAnnotated = selection?.annotated;
+  // 笔记弹窗状态（补充内容 + 显示）
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false);
+  const [noteExtra, setNoteExtra] = useState("");
+
+  // 切换选区时关闭笔记弹窗，避免自动弹出
+  useEffect(() => {
+    setNoteDialogOpen(false);
+    setNoteExtra("");
+  }, [selection?.key, selection?.text]);
   const buttons = [
     { label: "复制", Icon: FiCopy, onClick: handleCopy },
     { label: "解释", Icon: FiHelpCircle, onClick: handleExplain },
@@ -123,7 +132,13 @@ const Annotator: React.FC = () => {
       Icon: selectionAnnotated ? RiDeleteBinLine : PiHighlighterFill,
       onClick: handleHighlight,
     },
-    { label: undefined, Icon: NotebookPen, onClick: addNote },
+    {
+      label: undefined,
+      Icon: NotebookPen,
+      onClick: () => {
+        setNoteDialogOpen(true);
+      },
+    },
   ];
 
   return (
@@ -154,6 +169,53 @@ const Annotator: React.FC = () => {
           onClose={handleCloseAskAI}
           onSendQuery={handleSendAIQuery}
         />
+      )}
+
+      {noteDialogOpen && selection && annotPopupPosition && (
+        <div
+          className="pointer-events-auto absolute z-50 w-[340px] rounded-lg border border-neutral-200 bg-white p-3 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+          style={{
+            left: annotPopupPosition.point.x - 170,
+            top: annotPopupPosition.point.y + 20,
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <div className="mb-2 text-xs text-neutral-500">引用</div>
+          <div className="line-clamp-3 rounded bg-neutral-50 p-2 text-sm text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
+            {selection.text}
+          </div>
+          <div className="mt-3 text-xs text-neutral-500">补充内容</div>
+          <textarea
+            className="mt-1 h-20 w-full resize-none rounded border border-neutral-200 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            placeholder="输入你的想法，可留空"
+            value={noteExtra}
+            onChange={(e) => setNoteExtra(e.target.value)}
+          />
+          <div className="mt-3 flex justify-end gap-2 text-xs">
+            <button
+              className="rounded-md px-3 py-1 text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              onClick={(e) => {
+                e.stopPropagation();
+                setNoteDialogOpen(false);
+                setNoteExtra("");
+              }}
+            >
+              取消
+            </button>
+            <button
+              className="rounded-md bg-neutral-900 px-3 py-1 text-white hover:bg-neutral-800 dark:bg-primary-500 dark:hover:bg-primary-600 disabled:opacity-50"
+              onClick={async (e) => {
+                e.stopPropagation();
+                await addNote(noteExtra);
+                setNoteDialogOpen(false);
+                setNoteExtra("");
+                handleDismissPopup();
+              }}
+            >
+              确定
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

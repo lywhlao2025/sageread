@@ -24,7 +24,7 @@ export const useAnnotations = ({ bookId }: UseAnnotationsProps = {}) => {
       // 过滤出类型为 annotation 且未删除的笔记，并按创建时间倒序排列
       return bookNotes
         .filter((note) => note.type === "annotation" && !note.deletedAt)
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     },
     enabled: !!bookId,
   });

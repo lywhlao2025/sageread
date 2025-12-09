@@ -1,7 +1,13 @@
+import { useNotepad } from "@/components/notepad/hooks";
+import { createBookNote, deleteBookNote } from "@/services/book-note-service";
 import { iframeService } from "@/services/iframe-service";
+import { useReaderStore } from "@/pages/reader/components/reader-provider";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FiCopy, FiHelpCircle, FiMessageCircle } from "react-icons/fi";
 import { MdTranslate } from "react-icons/md";
+import { NotebookPen } from "lucide-react";
+import { PiHighlighterFill } from "react-icons/pi";
+import { RiDeleteBinLine } from "react-icons/ri";
 import AskAIPopup from "./annotator/ask-ai-popup";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf";
 import { EventBus, PDFLinkService, PDFViewer } from "pdfjs-dist/legacy/web/pdf_viewer";
@@ -10,6 +16,7 @@ import "pdfjs-dist/legacy/web/pdf_viewer.css";
 // biome-ignore lint/nursery/noImportAssign: asset import
 // @ts-ignore
 import workerSrc from "pdfjs-dist/legacy/build/pdf.worker.min.js?url";
+import { useQueryClient } from "@tanstack/react-query";
 
 type PopupPosition = { x: number; y: number };
 
@@ -21,10 +28,24 @@ interface PdfViewerProps {
 GlobalWorkerOptions.workerSrc = workerSrc as string;
 
 const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
+  const { handleCreateNote } = useNotepad();
+  const bookData = useReaderStore((state) => state.bookData);
+  const queryClient = useQueryClient();
   const [selectedText, setSelectedText] = useState<string>("");
   const [popupPos, setPopupPos] = useState<PopupPosition | null>(null);
   const [showAskAIPopup, setShowAskAIPopup] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [highlights, setHighlights] = useState<
+    {
+      id: string;
+      color: string;
+      rects: Array<{ left: number; top: number; width: number; height: number }>;
+    }
+  >([]);
+  const [selectedColor, setSelectedColor] = useState("#FDE68A"); // 默认黄色
+  // 笔记弹窗状态：是否显示 & 补充内容
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false);
+  const [noteExtra, setNoteExtra] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
   const eventBusRef = useRef<EventBus | null>(null);
@@ -68,6 +89,19 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
       cancelled = true;
     };
   }, [file]);
+
+  // Disable native context menu (double-click/right-click)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const handler = (e: Event) => {
+      e.preventDefault();
+    };
+    el.addEventListener("contextmenu", handler);
+    return () => {
+      el.removeEventListener("contextmenu", handler);
+    };
+  }, []);
 
   // 监听选区，定位弹窗
   useEffect(() => {
@@ -120,6 +154,12 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
     };
   }, [showAskAIPopup]);
 
+  // 切换选区时关闭笔记弹窗，避免自动弹出
+  useEffect(() => {
+    setNoteDialogOpen(false);
+    setNoteExtra("");
+  }, [selectedText]);
+
   const handleExplain = () => {
     if (!selectedText) return;
     iframeService.sendExplainTextRequest(selectedText, "explain", bookId);
@@ -129,6 +169,62 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
   const handleAskAI = () => {
     if (!selectedText || !popupPos) return;
     setShowAskAIPopup(true);
+  };
+
+  const handleHighlight = () => {
+    if (!selectedText) return;
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const range = sel.getRangeAt(0);
+    const rects = Array.from(range.getClientRects());
+    const containerRect = containerRef.current?.getBoundingClientRect();
+    if (!containerRect || rects.length === 0) return;
+
+    const mapped = rects.map((r) => ({
+      left: r.left - containerRect.left + containerRef.current!.scrollLeft,
+      top: r.top - containerRect.top + containerRef.current!.scrollTop,
+      width: r.width,
+      height: r.height,
+    }));
+
+    const colorMap: Record<string, "red" | "yellow" | "green" | "blue" | "violet"> = {
+      "#f87171": "red",
+      "#fecaca": "red",
+      "#fbbf24": "yellow",
+      "#34d399": "green",
+      "#60a5fa": "blue",
+      "#a78bfa": "violet",
+    };
+    const normalized = selectedColor.toLowerCase();
+    const colorName = colorMap[normalized] ?? "yellow";
+
+    const cfi = `pdf-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    createBookNote({
+      bookId,
+      type: "annotation",
+      cfi,
+      style: "highlight",
+      color: colorName,
+      text: selectedText,
+      note: "",
+    })
+      .then((annotation) => {
+        setHighlights((prev) => [...prev, { id: annotation.id, color: selectedColor, rects: mapped }]);
+        queryClient.invalidateQueries({ queryKey: ["annotations", bookId] });
+      })
+      .catch(() => {
+        // ignore for now
+      })
+      .finally(() => {
+        setPopupPos(null);
+        window.getSelection()?.removeAllRanges();
+      });
+  };
+
+  const handleAddNote = async () => {
+    if (!selectedText.trim()) return;
+    setNoteDialogOpen(true);
   };
 
   const handleTranslate = () => {
@@ -156,7 +252,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
   };
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-neutral-50">
+    <div className="relative h-full w-full overflow-hidden bg-[#fafaf7]">
       <div className="absolute inset-0">
         {loadError ? (
           <div className="flex h-full items-center justify-center text-sm text-red-500">{loadError}</div>
@@ -169,6 +265,22 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
             style={{ position: "absolute", inset: 0, overflow: "auto" }}
           >
             <div ref={viewerRef} className="pdfViewer" />
+            {highlights.map((h) =>
+              h.rects.map((r, idx) => (
+                <div
+                  key={`${h.id}-${idx}`}
+                  className="pointer-events-none absolute rounded-sm"
+                  style={{
+                    left: r.left,
+                    top: r.top,
+                    width: r.width,
+                    height: r.height,
+                    backgroundColor: h.color,
+                    opacity: 0.25,
+                  }}
+                />
+              )),
+            )}
           </div>
         )}
       </div>
@@ -210,6 +322,41 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
             <FiMessageCircle size={14} />
             <span>询问AI</span>
           </button>
+          <div className="mx-1 h-5 w-px bg-neutral-200 dark:bg-neutral-700" />
+          <button
+            onClick={handleHighlight}
+            className="flex items-center gap-1 px-2 py-1 hover:text-primary-600 dark:hover:text-primary-300"
+          >
+            <PiHighlighterFill size={14} />
+            <span>标注</span>
+          </button>
+          <div className="mx-1 h-5 w-px bg-neutral-200 dark:bg-neutral-700" />
+          <button
+            onClick={async () => {
+              const target = highlights[highlights.length - 1];
+              if (!target) return;
+              setHighlights((prev) => prev.slice(0, -1));
+              try {
+                await deleteBookNote(target.id);
+                queryClient.invalidateQueries({ queryKey: ["annotations", bookId] });
+              } catch {
+                // ignore
+              }
+            }}
+            disabled={!highlights.length}
+            className="flex items-center gap-1 px-2 py-1 text-red-500 hover:text-red-600 disabled:opacity-50 disabled:hover:text-red-500"
+          >
+            <RiDeleteBinLine size={14} />
+            <span>删除</span>
+          </button>
+          <div className="mx-1 h-5 w-px bg-neutral-200 dark:bg-neutral-700" />
+          <button
+            onClick={handleAddNote}
+            className="flex items-center gap-1 px-2 py-1 hover:text-primary-600 dark:hover:text-primary-300"
+          >
+            <NotebookPen size={14} />
+            <span>笔记</span>
+          </button>
         </div>
       )}
 
@@ -225,6 +372,92 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
             onClose={() => setShowAskAIPopup(false)}
             onSendQuery={(query) => handleSendAIQuery(query, selectedText)}
           />
+        </div>
+      )}
+
+      {noteDialogOpen && popupPos && (
+        <div
+          className="pointer-events-auto absolute z-50 w-[340px] rounded-lg border border-neutral-200 bg-white p-3 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+          style={{ left: popupPos.x - 170, top: popupPos.y + 20 }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <div className="mb-2 text-xs text-neutral-500">引用</div>
+          <div className="line-clamp-3 rounded bg-neutral-50 p-2 text-sm text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
+            {selectedText}
+          </div>
+          <div className="mt-3 text-xs text-neutral-500">补充内容</div>
+          <textarea
+            className="mt-1 h-20 w-full resize-none rounded border border-neutral-200 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            placeholder="输入你的想法，可留空"
+            value={noteExtra}
+            onChange={(e) => setNoteExtra(e.target.value)}
+          />
+          <div className="mt-3 flex justify-end gap-2 text-xs">
+            <button
+              className="rounded-md px-3 py-1 text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              onClick={(e) => {
+                e.stopPropagation();
+                setNoteDialogOpen(false);
+                setNoteExtra("");
+                setPopupPos(null);
+              }}
+            >
+              取消
+            </button>
+            <button
+              className="rounded-md bg-neutral-900 px-3 py-1 text-white hover:bg-neutral-800 dark:bg-primary-500 dark:hover:bg-primary-600 disabled:opacity-50"
+              onClick={async (e) => {
+                e.stopPropagation();
+                try {
+                  const base = selectedText.trim();
+                  const extra = noteExtra.trim();
+                  const combined = extra ? `${base}\n\n${extra}` : base;
+                  const title = combined.length > 50 ? `${combined.slice(0, 50)}...` : combined;
+                  const bookMeta = bookData?.book
+                    ? { title: bookData.book.title, author: bookData.book.author }
+                    : undefined;
+                  await handleCreateNote({
+                    bookId,
+                    bookMeta,
+                    title,
+                    content: combined,
+                  });
+                } finally {
+                  setNoteDialogOpen(false);
+                  setNoteExtra("");
+                  setPopupPos(null);
+                  setShowAskAIPopup(false);
+                  window.getSelection()?.removeAllRanges();
+                }
+              }}
+            >
+              确定
+            </button>
+          </div>
+        </div>
+      )}
+
+      {popupPos && !showAskAIPopup && (
+        <div
+          className="pointer-events-auto absolute z-50 mt-2 flex items-center gap-2 rounded-full bg-neutral-800 px-3 py-2 text-xs text-white shadow-xl"
+          style={{ left: popupPos.x, top: popupPos.y, transform: "translate(-50%, 20%)" }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          {[
+            "#F87171",
+            "#A78BFA",
+            "#60A5FA",
+            "#34D399",
+            "#FBBF24",
+            "#FECACA",
+          ].map((c) => (
+            <button
+              key={c}
+              onClick={() => setSelectedColor(c)}
+              className="h-5 w-5 rounded-full border border-white/40"
+              style={{ backgroundColor: c, boxShadow: selectedColor === c ? "0 0 0 2px #fff" : undefined }}
+            />
+          ))}
         </div>
       )}
     </div>

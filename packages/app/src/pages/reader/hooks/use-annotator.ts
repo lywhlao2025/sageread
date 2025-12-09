@@ -174,12 +174,14 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
     [selection, config, view, settings, bookId, store, queryClient],
   );
 
-  const addNote = useCallback(async () => {
+  const addNote = useCallback(
+    async (extraContent = "") => {
     if (!selection || !selection.text) return;
 
     try {
-      const content = selection.text.trim();
-      const title = content.length > 50 ? `${content.substring(0, 50)}...` : content;
+        const base = selection.text.trim();
+        const combined = extraContent.trim() ? `${base}\n\n${extraContent.trim()}` : base;
+        const title = combined.length > 50 ? `${combined.substring(0, 50)}...` : combined;
 
       if (!bookData?.book) {
         toast.error("无法获取书籍信息");
@@ -195,13 +197,15 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
         bookId,
         bookMeta,
         title,
-        content,
+        content: combined,
       });
       toast.success("笔记已创建");
     } catch (error) {
       toast.error("创建笔记失败");
     }
-  }, [selection, bookData, bookId, handleCreateNote]);
+    },
+    [selection, bookData, bookId, handleCreateNote],
+  );
 
   const handleExplain = useCallback(() => {
     if (!selection || !selection.text) return;
