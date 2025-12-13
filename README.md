@@ -23,6 +23,7 @@ SageRead 是一款电子书阅读器，主要特点是可以在阅读时随时�
 | 2025.12.9| 增加笔记编辑功能| ✅ | 
 
 
+
 ## ✨ 核心特性
 
 | Feature | Description | Status |
@@ -37,4 +38,11 @@ SageRead 是一款电子书阅读器，主要特点是可以在阅读时随时�
 | 🎨 **主题定制** | 深色/浅色主题切换，自定义字体、布局和配色方案 | ✅ |
 | 🔒 **隐私优先** | 所有数据本地存储，支持自部署 AI 模型，保护阅读隐私 | ✅ |
 
----
+### 支持一下
+业余时间更新，您的支持是我们持续迭代的动力📊 
+
+**WeChat**  
+<img src="assets/pay/wechat.JPG" alt="WeChat Pay" width="140" />
+
+**Alipay**  
+<img src="assets/pay/ali.JPG" alt="Alipay" width="140" />
