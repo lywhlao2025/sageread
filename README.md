@@ -43,6 +43,3 @@ SageRead 是一款电子书阅读器，主要特点是可以在阅读时随时�
 
 **WeChat**  
 <img src="assets/pay/wechat.JPG" alt="WeChat Pay" width="140" />
-
-**Alipay**  
-<img src="assets/pay/ali.JPG" alt="Alipay" width="140" />
