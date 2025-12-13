@@ -14,7 +14,7 @@ SageRead 是一款电子书阅读器，主要特点是可以在阅读时随时�
 ---
 
 ## 说明
-由于原作者[https://github.com/xincmm/sageread]长时间未更新，因此决定在原作者项目基础上做些迭代优化，希望更多的小伙伴可以加入更新迭代的开发工作中
+由于原项目 [xincmm/sageread](https://github.com/xincmm/sageread) 长时间未更新，我们在其基础上持续迭代优化，欢迎更多小伙伴加入共建。
 
 ## 更新日志
 | 日期 | 新功能 | Status |
