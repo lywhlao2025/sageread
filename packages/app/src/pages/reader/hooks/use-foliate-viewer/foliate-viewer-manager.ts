@@ -168,13 +168,14 @@ export class FoliateViewerManager {
 
     const writingDir = this.view?.renderer.setStyles && getDirection(doc);
     const { bookDoc, globalViewSettings } = this.config;
+    const baseSettings = this.styleManager?.getCurrentSettings() ?? globalViewSettings;
 
     // Update view settings based on document
     const updatedSettings = {
-      ...globalViewSettings,
-      vertical: writingDir?.vertical || globalViewSettings.writingMode?.includes("vertical") || false,
+      ...baseSettings,
+      vertical: writingDir?.vertical || baseSettings.writingMode?.includes("vertical") || false,
       rtl:
-        writingDir?.rtl || getDirFromUILanguage() === "rtl" || globalViewSettings.writingMode?.includes("rl") || false,
+        writingDir?.rtl || getDirFromUILanguage() === "rtl" || baseSettings.writingMode?.includes("rl") || false,
     };
 
     this.onViewSettingsUpdate?.(updatedSettings);

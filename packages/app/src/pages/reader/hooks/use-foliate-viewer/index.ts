@@ -95,6 +95,7 @@ export const useFoliateViewer = (bookId: string, bookDoc: BookDoc, config: BookC
     if (view?.renderer && isInitialized.current) {
       const styles = getStyles(settings.globalViewSettings, themeCode);
       view.renderer.setStyles?.(styles);
+      managerRef.current?.updateViewSettings(settings.globalViewSettings);
 
       if (bookDoc.rendition?.layout === "pre-paginated") {
         const docs = view.renderer.getContents();

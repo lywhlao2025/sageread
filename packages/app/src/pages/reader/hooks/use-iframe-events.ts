@@ -8,22 +8,19 @@ export const useMouseEvent = (
   handleContinuousScroll: (source: ScrollSource, delta: number, threshold: number) => void,
 ) => {
   const debounceScroll = debounce(handleContinuousScroll, 500);
-  const debounceFlip = debounce(handlePageFlip, 100);
   const handleMouseEvent = (msg: MessageEvent | React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     if (msg instanceof MessageEvent) {
       if (msg.data && msg.data.bookId === bookId) {
         if (msg.data.type === "iframe-wheel") {
           debounceScroll("mouse", -msg.data.deltaY, 0);
         }
-        if (msg.data.type === "iframe-wheel") {
-          debounceFlip(msg);
-        } else {
-          handlePageFlip(msg);
-        }
+        // Don't debounce wheel events: swipe detection needs the full stream of deltas.
+        handlePageFlip(msg);
       }
     } else if (msg.type === "wheel") {
       const event = msg as React.WheelEvent<HTMLDivElement>;
       debounceScroll("mouse", -event.deltaY, 0);
+      handlePageFlip(msg);
     } else {
       handlePageFlip(msg);
     }

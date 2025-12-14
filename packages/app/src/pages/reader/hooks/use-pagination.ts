@@ -2,6 +2,7 @@ import { useAppSettingsStore } from "@/store/app-settings-store";
 import type { ViewSettings } from "@/types/book";
 import type { FoliateView } from "@/types/view";
 import { eventDispatcher } from "@/utils/event";
+import { useRef } from "react";
 import { useReaderStoreApi } from "../components/reader-provider";
 
 export type ScrollSource = "touch" | "mouse";
@@ -33,6 +34,16 @@ export const usePagination = (bookId: string, containerRef: React.RefObject<HTML
   const globalViewSettings = settings.globalViewSettings!;
 
   const view = store.getState().view;
+  const getView = () => store.getState().view;
+  const swipeAccumXRef = useRef(0);
+  const lastWheelEventAtRef = useRef(0);
+  const lastSwipeFlipAtRef = useRef(0);
+  const swipeLockedRef = useRef(false);
+  const lastIframeWheelAtRef = useRef(0);
+  const SWIPE_THRESHOLD = 12; // px accumulated deltaX to flip
+  const SWIPE_TIMEOUT = 1200; // ms to reset accumulation
+  const SWIPE_COOLDOWN = 600; // ms to prevent multi-flip per gesture
+  const SWIPE_GESTURE_WINDOW = 900; // ms: treat a burst as one gesture
 
   const handlePageFlip = async (msg: MessageEvent | CustomEvent | React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     if (msg instanceof MessageEvent) {
@@ -68,14 +79,55 @@ export const usePagination = (bookId: string, containerRef: React.RefObject<HTML
               }
             }
           }
-        } else if (msg.data.type === "iframe-wheel" && !globalViewSettings.scrolled) {
-          // The wheel event is handled by the iframe itself in scrolled mode.
-          const { deltaY } = msg.data;
-          if (deltaY > 0) {
-            view?.next(1);
-          } else if (deltaY < 0) {
-            view?.prev(1);
+        } else if (msg.data.type === "iframe-wheel") {
+          // Match Apple Books style:
+          // - paginated mode: lock vertical wheel, only allow horizontal swipe to flip
+          // - scrolled mode: allow vertical scroll, disable swipe-to-flip to avoid mixed gestures
+          if (globalViewSettings.scrolled) return;
+
+          const { deltaX, deltaY } = msg.data;
+          const now = Date.now();
+          lastIframeWheelAtRef.current = now;
+          if (now - lastWheelEventAtRef.current > SWIPE_GESTURE_WINDOW) swipeLockedRef.current = false;
+          if (now - lastWheelEventAtRef.current > SWIPE_TIMEOUT) swipeAccumXRef.current = 0;
+          lastWheelEventAtRef.current = now;
+
+          // Paginated mode: treat wheel as horizontal swipe; ignore vertical delta to avoid mixed gestures.
+          // Some trackpads emit small deltaX values; accumulate them and flip once a threshold is reached.
+          if (Math.abs(deltaX) > 0.1) {
+            if (swipeLockedRef.current) {
+              return;
+            }
+            if (swipeAccumXRef.current !== 0 && Math.sign(swipeAccumXRef.current) !== Math.sign(deltaX)) {
+              swipeAccumXRef.current = 0;
+            }
+            swipeAccumXRef.current += deltaX;
+            if (now - lastSwipeFlipAtRef.current > SWIPE_COOLDOWN) {
+              if (swipeAccumXRef.current >= SWIPE_THRESHOLD) {
+                swipeAccumXRef.current = 0;
+                lastSwipeFlipAtRef.current = now;
+                swipeLockedRef.current = true;
+                setTimeout(() => {
+                  swipeLockedRef.current = false;
+                }, SWIPE_GESTURE_WINDOW);
+                return viewPagination(getView(), globalViewSettings, "right");
+              }
+              if (swipeAccumXRef.current <= -SWIPE_THRESHOLD) {
+                swipeAccumXRef.current = 0;
+                lastSwipeFlipAtRef.current = now;
+                swipeLockedRef.current = true;
+                setTimeout(() => {
+                  swipeLockedRef.current = false;
+                }, SWIPE_GESTURE_WINDOW);
+                return viewPagination(getView(), globalViewSettings, "left");
+              }
+            }
+          } else if (Math.abs(deltaY) > 0.5) {
+            // If it's essentially vertical, don't accumulate; keep it inert.
+            swipeAccumXRef.current = 0;
           }
+
+          // Intentionally ignore vertical wheel in paginated mode.
         } else if (msg.data.type === "iframe-mouseup") {
           if (msg.data.button === 3) {
             view?.history.back();
@@ -103,6 +155,51 @@ export const usePagination = (bookId: string, containerRef: React.RefObject<HTML
           viewPagination(view, globalViewSettings, "left");
         } else if (clientX > rightThreshold) {
           viewPagination(view, globalViewSettings, "right");
+        }
+      } else if (msg.type === "wheel") {
+        const event = msg as React.WheelEvent<HTMLDivElement>;
+        if (globalViewSettings.scrolled) return;
+
+        const { deltaX, deltaY } = event;
+        const now = Date.now();
+        // Avoid double-processing when iframe already forwarded a wheel message for the same gesture.
+        if (now - lastIframeWheelAtRef.current < 80) return;
+        if (now - lastWheelEventAtRef.current > SWIPE_GESTURE_WINDOW) swipeLockedRef.current = false;
+        if (now - lastWheelEventAtRef.current > SWIPE_TIMEOUT) swipeAccumXRef.current = 0;
+        lastWheelEventAtRef.current = now;
+
+        // Prevent accidental vertical scrolling of the outer container/window in paginated mode.
+        event.preventDefault();
+
+        if (Math.abs(deltaX) > 0.1) {
+          if (swipeLockedRef.current) {
+            return;
+          }
+          if (swipeAccumXRef.current !== 0 && Math.sign(swipeAccumXRef.current) !== Math.sign(deltaX)) {
+            swipeAccumXRef.current = 0;
+          }
+          swipeAccumXRef.current += deltaX;
+          if (now - lastSwipeFlipAtRef.current > SWIPE_COOLDOWN) {
+            if (swipeAccumXRef.current >= SWIPE_THRESHOLD) {
+              swipeAccumXRef.current = 0;
+              lastSwipeFlipAtRef.current = now;
+              swipeLockedRef.current = true;
+              setTimeout(() => {
+                swipeLockedRef.current = false;
+              }, SWIPE_GESTURE_WINDOW);
+              viewPagination(getView(), globalViewSettings, "right");
+            } else if (swipeAccumXRef.current <= -SWIPE_THRESHOLD) {
+              swipeAccumXRef.current = 0;
+              lastSwipeFlipAtRef.current = now;
+              swipeLockedRef.current = true;
+              setTimeout(() => {
+                swipeLockedRef.current = false;
+              }, SWIPE_GESTURE_WINDOW);
+              viewPagination(getView(), globalViewSettings, "left");
+            }
+          }
+        } else if (Math.abs(deltaY) > 0.5) {
+          swipeAccumXRef.current = 0;
         }
       }
     }
