@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="96" y1="64" x2="448" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF8A00"/>
+      <stop offset="1" stop-color="#FF6A00"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="96" y1="64" x2="352" y2="320" gradientUnits="userSpaceOnUse">
+      <stop stop-color="white" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="512" height="512" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Rounded square app icon background -->
+  <g filter="url(#shadow)">
+    <rect x="52" y="52" width="408" height="408" rx="88" fill="url(#bg)"/>
+    <rect x="52" y="52" width="408" height="408" rx="88" fill="url(#shine)"/>
+  </g>
+
+  <!-- Book glyph -->
+  <g transform="translate(0 6)">
+    <!-- Back page -->
+    <path
+      d="M172 154C172 139.64 183.64 128 198 128H324C348.301 128 368 147.699 368 172V324C368 338.36 356.36 350 342 350H220C194.49 350 172 336.51 172 316V154Z"
+      fill="white"
+      fill-opacity="0.22"
+    />
+    <!-- Front cover outline -->
+    <path
+      d="M156 170C156 146.804 174.804 128 198 128H310C334.301 128 354 147.699 354 172V338C354 355.673 339.673 370 322 370H214C181.967 370 156 344.033 156 312V170Z"
+      stroke="white"
+      stroke-width="20"
+      stroke-linejoin="round"
+    />
+    <!-- Lines -->
+    <path d="M202 192H308" stroke="white" stroke-width="18" stroke-linecap="round" opacity="0.9"/>
+    <path d="M202 238H308" stroke="white" stroke-width="18" stroke-linecap="round" opacity="0.9"/>
+    <path d="M202 284H288" stroke="white" stroke-width="18" stroke-linecap="round" opacity="0.9"/>
+    <path d="M202 330H252" stroke="white" stroke-width="18" stroke-linecap="round" opacity="0.9"/>
+  </g>
+</svg>

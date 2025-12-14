@@ -30,6 +30,7 @@ dist-ssr
 .cursor/mcp.json
 .mcp-feedback-port
 target/
+.cache/
 
 .mcp-feedback-port
 

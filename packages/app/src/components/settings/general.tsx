@@ -115,6 +115,11 @@ export default function GeneralSettings() {
           </div>
 
           <div className="flex items-center justify-between">
+            <span className="text dark:text-neutral-200">开发者</span>
+            <p className="text-neutral-600 text-xs dark:text-neutral-400">lywhlao2025</p>
+          </div>
+
+          <div className="flex items-center justify-between">
             <div>
               <span className="text dark:text-neutral-200">检查更新</span>
               <p className="mt-2 text-neutral-600 text-xs dark:text-neutral-400">检查是否有新版本可用</p>

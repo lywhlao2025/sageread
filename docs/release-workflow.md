@@ -1,6 +1,6 @@
 # 发布工作流程
 
-本文档说明如何发布 SageRead 的新版本。
+本文档说明如何发布 SageRead X 的新版本。
 
 ## 前置要求
 
@@ -89,9 +89,9 @@ https://github.com/xincmm/sageread/releases
 
 选择适合你系统的版本：
 
-- **macOS Apple Silicon (M1/M2/M3)**: `SageRead_x.x.x_aarch64.dmg`
-- **macOS Intel**: `SageRead_x.x.x_x64.dmg`
-- **Windows**: `SageRead_x.x.x_x64_setup.exe`
+- **macOS Apple Silicon (M1/M2/M3)**: `SageReadX_x.x.x_aarch64.dmg`
+- **macOS Intel**: `SageReadX_x.x.x_x64.dmg`
+- **Windows**: `SageReadX_x.x.x_x64_setup.exe`
 
 **首次安装用户**：直接下载安装即可  
 **已安装用户**：应用会自动检测并提示更新

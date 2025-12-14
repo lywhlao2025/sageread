@@ -1,6 +1,7 @@
 <div align="center">
 
-## SageRead
+
+## 🚗SageRead X
 
 **一款支持 AI 对话的电子书阅读器**
 
@@ -9,11 +10,15 @@
 </div>
 
 <br/>
-SageRead 是一款电子书阅读器，主要特点是可以在阅读时随时跟 AI 对话。
+SageRead X 是一款电子书阅读器，主要特点是可以在阅读时随时跟 AI 对话。
 你可以用它来读电子书，做笔记和高亮标注。不懂的地方直接问 AI，它会根据书籍内容给你解答。支持自定义 AI 提示词，可以让 AI 帮你总结、翻译或做其他事情。所有数据都存在本地，支持自己配置 AI 服务。
 
-## 🐀说明
-由于原项目 [xincmm/sageread](https://github.com/xincmm/sageread) 长时间未更新，我们在其基础上持续迭代优化，欢迎更多小伙伴加入共建。
+## 👨‍🏫关于
+本项目是从 `xincmm/sageread` fork 而来,[xincmm/sageread](https://github.com/xincmm/sageread) 长时间未更新，我们在其基础上持续迭代优化，欢迎更多小伙伴加入共建。
+
+该分支目前由我持续维护，
+包含新的功能、问题修复以及各类改进。
+本项目基于 GNU AGPL v3.0 协议发布。
 
 ## 📒更新日志
 | 日期 | 新功能 | Status |
@@ -30,3 +35,5 @@ SageRead 是一款电子书阅读器，主要特点是可以在阅读时随时�
 
 **WeChat**  
 <img src="assets/pay/wechat.JPG" alt="WeChat Pay" width="140" />
+
+

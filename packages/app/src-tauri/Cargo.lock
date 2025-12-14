@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "SageRead"
+name = "SageReadX"
 version = "0.1.0"
 dependencies = [
  "chrono",
