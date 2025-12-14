@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "SageRead X",
   "version": "0.1.1",
-  "identifier": "com.xincmm.sageread",
+  "identifier": "com.lywhlao2025.sagereadx",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
