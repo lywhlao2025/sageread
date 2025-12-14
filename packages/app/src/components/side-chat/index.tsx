@@ -56,6 +56,7 @@ function ChatContent({ bookId }: ChatContentProps) {
     handleAskSelection,
     handleRemoveReference,
     handleSubmit,
+    handleSubmitWithReferences,
     handleRetry,
     handleNewThread,
     handleShowThreads,
@@ -73,6 +74,32 @@ function ChatContent({ bookId }: ChatContentProps) {
     currentThread: currentThread,
     setCurrentThread: setCurrentThread,
   });
+
+  const getVisibleContentText = () => {
+    const visibleText = progress?.range?.toString?.().trim() ?? "";
+    if (!visibleText) return "";
+    const maxLen = 6000;
+    if (visibleText.length <= maxLen) return visibleText;
+    const head = visibleText.slice(0, 3500);
+    const tail = visibleText.slice(-2000);
+    return `${head}\n\n…（中间内容已省略）…\n\n${tail}`;
+  };
+
+  const handleSubmitWithVisibleContent = async (promptOverride?: string) => {
+    const prompt = (promptOverride ?? input).trim();
+    if (!prompt) return;
+
+    // Only "总结本页" uses the currently visible text as context.
+    if (promptOverride === "请帮我总结本页的核心要点和结论。") {
+      const visibleText = getVisibleContentText();
+      if (visibleText) {
+        await handleSubmitWithReferences(prompt, [visibleText]);
+        return;
+      }
+    }
+
+    await handleSubmit(promptOverride);
+  };
 
   const handleViewToolDetail = (toolPart: any) => {
     setToolDetail(toolPart);
@@ -207,7 +234,7 @@ function ChatContent({ bookId }: ChatContentProps) {
           setInput={setInput}
           references={references}
           onRemoveReference={handleRemoveReference}
-          onSubmit={handleSubmit}
+          onSubmit={handleSubmitWithVisibleContent}
           onStop={stop}
           status={status}
           activeBookId={bookId}

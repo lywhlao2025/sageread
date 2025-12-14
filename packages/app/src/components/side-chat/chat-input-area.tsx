@@ -21,7 +21,7 @@ interface ChatInputAreaProps {
 }
 
 const quickActions = [
-  { label: "总结本章", icon: BookOpen, prompt: "请帮我总结本章的核心要点和结论。" },
+  { label: "总结本页", icon: BookOpen, prompt: "请帮我总结本页的核心要点和结论。" },
   { label: "分析观点", icon: Brain, prompt: "请分析作者的观点，指出论据与可能的偏见。" },
   { label: "生成思维导图", icon: Notebook, prompt: "请基于当前内容生成思维导图。" },
 ] as const;

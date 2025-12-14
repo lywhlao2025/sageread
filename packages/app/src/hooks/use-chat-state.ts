@@ -46,6 +46,7 @@ export interface UseChatStateReturn {
 
   // 消息处理
   handleSubmit: (promptOverride?: string) => Promise<void>;
+  handleSubmitWithReferences: (prompt: string, referenceTexts: string[]) => Promise<void>;
   handleRetry: () => Promise<void>;
 
   // 线程管理
@@ -362,17 +363,14 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
     [selectedModel, setActiveContext],
   );
 
-  const handleSubmit = useCallback(
-    async (overrideInput?: string) => {
+  const submitMessage = useCallback(
+    async (prompt: string, referenceSnapshot: ChatReference[]) => {
       if (status !== "ready") return;
-
-      const sourceInput = overrideInput ?? input;
-      const trimmedInput = sourceInput.trim();
+      const trimmedInput = prompt.trim();
       if (!trimmedInput) return;
 
       setDisplayError(null);
 
-      const referenceSnapshot = references.map((reference) => ({ ...reference }));
       const messageParts = buildMessageParts(trimmedInput, referenceSnapshot);
 
       if (messages.length === 0 && !currentThread) {
@@ -425,16 +423,38 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
     },
     [
       status,
-      input,
-      references,
       messages,
-      activeBookId,
       currentThread,
+      activeBookId,
       buildMessageParts,
-      sendMessage,
-      setMessages,
-      setCurrentThread,
       generateSemanticContextAsync,
+      sendMessage,
+      setCurrentThread,
+      setMessages,
+    ],
+  );
+
+  const handleSubmit = useCallback(
+    async (overrideInput?: string) => {
+      const sourceInput = overrideInput ?? input;
+      const trimmedInput = sourceInput.trim();
+      if (!trimmedInput) return;
+      await submitMessage(trimmedInput, references.map((reference) => ({ ...reference })));
+    },
+    [input, references, submitMessage],
+  );
+
+  const handleSubmitWithReferences = useCallback(
+    async (prompt: string, referenceTexts: string[]) => {
+      const referenceSnapshot: ChatReference[] = referenceTexts
+        .map((text) => text.trim())
+        .filter(Boolean)
+        .map((text) => ({ id: createReferenceId(), text }));
+      await submitMessage(prompt, referenceSnapshot);
+    },
+    [
+      createReferenceId,
+      submitMessage,
     ],
   );
 
@@ -528,6 +548,7 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
 
     // 消息处理
     handleSubmit,
+    handleSubmitWithReferences,
     handleRetry,
 
     // 线程管理

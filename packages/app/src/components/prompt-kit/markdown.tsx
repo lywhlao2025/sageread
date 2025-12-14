@@ -17,6 +17,10 @@ export type MarkdownProps = {
   components?: Partial<Components>;
 };
 
+function stripChunkIdPlaceholders(markdown: string): string {
+  return markdown.replace(/\[\s*chunk[\s_]?id\s*\]/gi, "");
+}
+
 function parseMarkdownIntoBlocks(markdown: string): string[] {
   const tokens = marked.lexer(markdown);
   return tokens.map((token) => token.raw);
@@ -131,7 +135,8 @@ MemoizedMarkdownBlock.displayName = "MemoizedMarkdownBlock";
 function MarkdownComponent({ children, id, className, components }: MarkdownProps) {
   const generatedId = useId();
   const blockId = id ?? generatedId;
-  const blocks = useMemo(() => parseMarkdownIntoBlocks(children), [children]);
+  const sanitized = useMemo(() => stripChunkIdPlaceholders(children), [children]);
+  const blocks = useMemo(() => parseMarkdownIntoBlocks(sanitized), [sanitized]);
 
   const finalComponents = useMemo(() => {
     const imgComponent = function ImgComponent({

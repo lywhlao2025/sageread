@@ -159,7 +159,7 @@ export const createRagRangeTool = (activeBookId: string | undefined) =>
         citations.length > 5 ? `... 以及其他 ${citations.length - 5} 个片段` : "",
         "",
         "📝 标注说明：",
-        "• 使用 [chunk_id] 格式在句末添加引用，如 [123], [456] 等",
+        "• 在句末添加引用编号，如 [123]、[456]（方括号内为 chunk_id 数字）",
         "• chunk_id 是文本标注的核心标识符，用于精确定位原文片段",
         "• 当用户需要标注特定内容时，引导其使用对应的 chunk_id",
         "",
