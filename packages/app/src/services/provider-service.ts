@@ -1,4 +1,5 @@
 import { fetch as fetchTauri } from "@tauri-apps/plugin-http";
+import { normalizeOpenAICompatibleBaseUrl } from "@/utils/provider";
 
 /**
  * Fetches models from a provider's API endpoint
@@ -17,7 +18,8 @@ export const fetchModelsFromProvider = async (provider: ModelProvider): Promise<
     };
     const isGemini = provider.provider === "gemini";
 
-    const trimmedBaseUrl = provider.baseUrl.replace(/\/+$/, "");
+    const normalizedBaseUrl = normalizeOpenAICompatibleBaseUrl(provider.baseUrl) ?? provider.baseUrl;
+    const trimmedBaseUrl = normalizedBaseUrl.replace(/\/+$/, "");
 
     // Only add authentication headers if API key is provided
     if (provider.apiKey) {
