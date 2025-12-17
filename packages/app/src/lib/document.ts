@@ -152,17 +152,80 @@ export class DocumentLoader {
     configure({ useWebWorkers: false });
     const reader = new ZipReader(new BlobReader(this.file));
     const entries = await reader.getEntries();
-    const map = new Map(entries.map((entry) => [entry.filename, entry]));
+    const map = new Map<string, Entry>(entries.map((entry) => [entry.filename, entry]));
+    const lowerMap = new Map<string, Entry>(entries.map((entry) => [entry.filename.toLowerCase(), entry]));
+
+    // Some "EPUB" downloads are ZIPs that contain the EPUB payload under a single top-level folder.
+    // foliate-js looks up `META-INF/container.xml` at the zip root; create normalized aliases if needed.
+    const normalizeKey = (name: string) => name.replace(/^\.?\//, "");
+    const containerSuffix = "META-INF/container.xml";
+    const containerCandidates = entries
+      .map((e) => e.filename)
+      .filter((name) => normalizeKey(name).toLowerCase().endsWith(containerSuffix.toLowerCase()));
+
+    if (!map.has(containerSuffix) && containerCandidates.length > 0) {
+      // Use the shortest candidate (e.g. "Book/META-INF/container.xml" over "A/B/...").
+      const best = containerCandidates.sort((a, b) => normalizeKey(a).length - normalizeKey(b).length)[0]!;
+      const bestNorm = normalizeKey(best);
+      const prefix = bestNorm.slice(0, bestNorm.length - containerSuffix.length);
+      if (prefix && !map.has(containerSuffix)) {
+        for (const entry of entries) {
+          const key = normalizeKey(entry.filename);
+          if (!key.startsWith(prefix)) continue;
+          const stripped = key.slice(prefix.length);
+          if (stripped && !map.has(stripped)) {
+            map.set(stripped, entry);
+            if (!lowerMap.has(stripped.toLowerCase())) {
+              lowerMap.set(stripped.toLowerCase(), entry);
+            }
+          }
+        }
+      }
+    }
+
+    const getEntry = (name: string): Entry | undefined => {
+      const n = normalizeKey(name);
+      return map.get(n) ?? map.get(n.replace(/^\//, "")) ?? lowerMap.get(n.toLowerCase());
+    };
+
     const load =
       (f: (entry: Entry, type?: string) => Promise<string | Blob> | null) =>
       (name: string, ...args: [string?]) =>
-        map.has(name) ? f(map.get(name)!, ...args) : null;
+        getEntry(name) ? f(getEntry(name)!, ...args) : null;
 
-    const loadText = load((entry: Entry) => (entry.getData ? entry.getData(new TextWriter()) : null));
-    const loadBlob = load((entry: Entry, type?: string) =>
-      entry.getData ? entry.getData(new BlobWriter(type!)) : null,
-    );
-    const getSize = (name: string) => map.get(name)?.uncompressedSize ?? 0;
+    let didLogMissingContainer = false;
+
+    const loadText = async (name: string) => {
+      const entry = getEntry(name);
+      if (!entry?.getData) {
+        if (!didLogMissingContainer && name.toLowerCase().includes("container.xml")) {
+          didLogMissingContainer = true;
+          const sample = Array.from(lowerMap.keys())
+            .filter((k) => k.includes("meta-inf") || k.includes("container.xml"))
+            .slice(0, 30);
+          console.error("[ZipLoader] Missing container entry:", { requested: name, sampleKeys: sample });
+        }
+        return null;
+      }
+      try {
+        return await entry.getData(new TextWriter());
+      } catch (e) {
+        console.error("[ZipLoader] Failed to read text:", { requested: name, actual: entry.filename }, e);
+        throw e;
+      }
+    };
+
+    const loadBlob = async (name: string, type?: string) => {
+      const entry = getEntry(name);
+      if (!entry?.getData) return null;
+      try {
+        return await entry.getData(new BlobWriter(type || ""));
+      } catch (e) {
+        console.error("[ZipLoader] Failed to read blob:", { requested: name, actual: entry.filename, type }, e);
+        throw e;
+      }
+    };
+    const getSize = (name: string) => getEntry(name)?.uncompressedSize ?? 0;
 
     return { entries, loadText, loadBlob, getSize, getComment, sha1: undefined };
   }

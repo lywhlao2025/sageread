@@ -1,7 +1,27 @@
 use super::models::*;
 use sqlx::{Row, SqlitePool};
 use std::fs;
+use std::io;
+use std::path::Path;
 use tauri::{AppHandle, Manager};
+
+fn is_cross_device_rename_error(err: &io::Error) -> bool {
+    // macOS/Linux: EXDEV (Invalid cross-device link) when renaming across mount points.
+    // Rust's io::ErrorKind does not provide a stable CrossDeviceLink variant across toolchains.
+    err.raw_os_error() == Some(18)
+}
+
+fn move_file(src: &Path, dest: &Path) -> Result<(), String> {
+    match fs::rename(src, dest) {
+        Ok(()) => Ok(()),
+        Err(e) if is_cross_device_rename_error(&e) => {
+            fs::copy(src, dest).map_err(|e| format!("复制文件失败: {}", e))?;
+            fs::remove_file(src).map_err(|e| format!("清理临时文件失败: {}", e))?;
+            Ok(())
+        }
+        Err(e) => Err(format!("移动文件失败: {}", e)),
+    }
+}
 
 #[tauri::command]
 pub async fn save_book(app_handle: AppHandle, data: BookUploadData) -> Result<SimpleBook, String> {
@@ -23,13 +43,12 @@ pub async fn save_book(app_handle: AppHandle, data: BookUploadData) -> Result<Si
 
     let epub_filename = format!("book.{}", data.format.to_lowercase());
     let epub_path = book_dir.join(&epub_filename);
-    std::fs::rename(&data.temp_file_path, &epub_path)
+    move_file(Path::new(&data.temp_file_path), &epub_path)
         .map_err(|e| format!("移动书籍文件失败: {}", e))?;
 
     let cover_path = if let Some(cover_temp_path) = &data.cover_temp_file_path {
         let cover_file = book_dir.join("cover.jpg");
-        std::fs::rename(cover_temp_path, &cover_file)
-            .map_err(|e| format!("移动封面文件失败: {}", e))?;
+        move_file(Path::new(cover_temp_path), &cover_file).map_err(|e| format!("移动封面文件失败: {}", e))?;
         Some(format!("books/{}/cover.jpg", data.id))
     } else {
         None

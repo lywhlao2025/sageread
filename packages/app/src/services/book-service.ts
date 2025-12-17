@@ -25,6 +25,49 @@ import { appDataDir, tempDir } from "@tauri-apps/api/path";
 import { join } from "@tauri-apps/api/path";
 import { writeFile, readFile } from "@tauri-apps/plugin-fs";
 
+async function unwrapEpubZipIfNeeded(
+  fileName: string,
+  fileData: ArrayBuffer,
+): Promise<{ fileName: string; fileData: ArrayBuffer } | null> {
+  const lowerName = fileName.toLowerCase();
+  if (!lowerName.endsWith(".epub.zip")) return null;
+
+  try {
+    const { configure, ZipReader, BlobReader, BlobWriter } = await import("@zip.js/zip.js");
+    configure({ useWebWorkers: false });
+
+    const zipBlob = new Blob([fileData], { type: "application/zip" });
+    const reader = new ZipReader(new BlobReader(zipBlob));
+    const entries = await reader.getEntries();
+
+    const hasEpubContainer = entries.some((e) => e.filename === "META-INF/container.xml");
+    if (hasEpubContainer) {
+      await reader.close();
+      return null;
+    }
+
+    const epubEntries = entries.filter((e) => e.filename.toLowerCase().endsWith(".epub"));
+    if (epubEntries.length === 0) {
+      await reader.close();
+      return null;
+    }
+
+    // If multiple EPUBs exist, pick the largest one.
+    epubEntries.sort((a, b) => (b.uncompressedSize ?? 0) - (a.uncompressedSize ?? 0));
+    const chosen = epubEntries[0]!;
+    const innerBlob = (await chosen.getData?.(new BlobWriter())) as Blob | undefined;
+    await reader.close();
+
+    if (!innerBlob) return null;
+    const innerData = await innerBlob.arrayBuffer();
+    const innerName = chosen.filename.split("/").pop() || chosen.filename;
+    return { fileName: innerName, fileData: innerData };
+  } catch (e) {
+    console.warn("无法解包 .epub.zip，尝试按普通 EPUB 处理:", e);
+    return null;
+  }
+}
+
 export async function uploadBook(file: File): Promise<SimpleBook> {
   try {
     const format = getBookFormat(file.name);
@@ -36,18 +79,32 @@ export async function uploadBook(file: File): Promise<SimpleBook> {
     const tempDirPath = await tempDir();
     const tempFileName = `temp_${bookHash}.${format.toLowerCase()}`;
     const tempFilePath = await join(tempDirPath, tempFileName);
-    const fileData = await file.arrayBuffer();
+
+    let fileData = await file.arrayBuffer();
+    let finalFileName = file.name;
+    let finalFileSize = file.size;
+
+    // Some sources provide "xxx.epub.zip" where the ZIP contains an EPUB file.
+    // Unwrap it so foliate-js can read META-INF/container.xml.
+    const unwrapped = await unwrapEpubZipIfNeeded(finalFileName, fileData);
+    if (unwrapped) {
+      finalFileName = unwrapped.fileName;
+      fileData = unwrapped.fileData;
+      finalFileSize = fileData.byteLength;
+    }
+
     await writeFile(tempFilePath, new Uint8Array(fileData));
-    let metadata = await extractMetadataOnly(file);
+
+    const metadataSourceFile = new File([fileData], finalFileName, { type: getFileMimeType(finalFileName) });
+    let metadata = await extractMetadataOnly(metadataSourceFile);
     let finalFormat: SimpleBook["format"] = format;
     let finalTempFilePath = tempFilePath;
-    let finalFileSize = file.size;
-    let finalFileName = file.name;
 
     let coverTempFilePath: string | undefined;
     if (finalFormat === "EPUB") {
       try {
-        const dataForCover = finalFormat === "EPUB" && finalTempFilePath !== tempFilePath ? await readFile(finalTempFilePath) : fileData;
+        const dataForCover =
+          finalFormat === "EPUB" && finalTempFilePath !== tempFilePath ? await readFile(finalTempFilePath) : fileData;
         const bookDoc = await parseEpubFile(
           dataForCover instanceof ArrayBuffer ? dataForCover : (dataForCover as Uint8Array).buffer,
           finalFileName,
@@ -87,7 +144,8 @@ export async function uploadBook(file: File): Promise<SimpleBook> {
 
 async function extractMetadataOnly(file: File): Promise<any> {
   try {
-    if (file.name.toLowerCase().endsWith(".epub")) {
+    const lowerName = file.name.toLowerCase();
+    if (lowerName.endsWith(".epub") || lowerName.endsWith(".epub.zip")) {
       const arrayBuffer = await file.arrayBuffer();
       const bookDoc = await parseEpubFile(arrayBuffer, file.name);
       return bookDoc.metadata;
@@ -345,7 +403,9 @@ async function parseEpubFile(fileData: ArrayBuffer, fileName: string) {
 }
 
 function getBookFormat(fileName: string): SimpleBook["format"] {
-  const ext = fileName.toLowerCase().split(".").pop();
+  const lowerName = fileName.toLowerCase();
+  if (lowerName.endsWith(".epub.zip")) return "EPUB";
+  const ext = lowerName.split(".").pop();
   switch (ext) {
     case "epub":
       return "EPUB";
@@ -365,7 +425,9 @@ function getBookFormat(fileName: string): SimpleBook["format"] {
 }
 
 function getFileMimeType(fileName: string): string {
-  const ext = fileName.toLowerCase().split(".").pop();
+  const lowerName = fileName.toLowerCase();
+  if (lowerName.endsWith(".epub.zip")) return "application/epub+zip";
+  const ext = lowerName.split(".").pop();
   switch (ext) {
     case "epub":
       return "application/epub+zip";
