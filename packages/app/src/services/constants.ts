@@ -56,7 +56,8 @@ export const DEFAULT_READSETTINGS: ReadSettings = {
   isNotebookPinned: false,
   autohideCursor: true,
   translationProvider: "deepl",
-  translateTargetLang: "EN",
+  // Use human-readable language in prompts (used by selection translate).
+  translateTargetLang: "中文",
 
   customThemes: [],
   highlightStyle: "highlight",

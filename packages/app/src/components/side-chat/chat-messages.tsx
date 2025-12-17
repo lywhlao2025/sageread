@@ -64,6 +64,48 @@ export function reorderTextAndReasoning(message: UIMessage): UIMessage {
   return { ...message, parts: reordered };
 }
 
+function isTranslationPrompt(message: UIMessage | undefined): boolean {
+  if (!message || message.role !== "user") return false;
+  const text = (message.parts || [])
+    .filter((p: any) => p?.type === "text" && typeof p.text === "string")
+    .map((p: any) => p.text)
+    .join("")
+    .trim();
+
+  if (!text) return false;
+  return (
+    text.includes("请将引用内容翻译成") ||
+    text.includes("请翻译这段内容") ||
+    text.includes("逐句翻译") ||
+    (text.includes("翻译") && text.includes("译文"))
+  );
+}
+
+function stripThinkBlocks(text: string): string {
+  // Some local models output <think>...</think> blocks even without explicit reasoning support.
+  return text.replace(/<think>[\s\S]*?<\/think>\s*/gi, "").trim();
+}
+
+function getDisplayMessage(messages: UIMessage[], index: number): UIMessage {
+  const message = messages[index] as UIMessage;
+  const prev = index > 0 ? (messages[index - 1] as UIMessage) : undefined;
+  if (message.role !== "assistant") return message;
+  if (!isTranslationPrompt(prev)) return message;
+
+  const parts = Array.isArray(message.parts) ? message.parts : [];
+  const filtered = parts
+    .filter((p: any) => p?.type !== "reasoning")
+    .map((p: any) => {
+      if (p?.type === "text" && typeof p.text === "string") {
+        return { ...p, text: stripThinkBlocks(p.text) };
+      }
+      return p;
+    })
+    .filter((p: any) => !(p?.type === "text" && typeof p.text === "string" && !p.text.trim()));
+
+  return { ...message, parts: filtered };
+}
+
 export function ChatMessages({
   messages,
   status,
@@ -77,7 +119,8 @@ export function ChatMessages({
 }: ChatMessagesProps) {
   const { scrollToBottom } = useStickToBottomContext();
   const isChatPage = useIsChatPage();
-  const lastMessage = reorderTextAndReasoning(messages[messages.length - 1]);
+  const rawLastMessage = messages[messages.length - 1] as UIMessage | undefined;
+  const lastMessage = reorderTextAndReasoning(getDisplayMessage(messages as UIMessage[], messages.length - 1));
   const reasoningPart = lastMessage?.parts?.findLast((part: UIMessagePart<any, any>) => part.type === "reasoning");
   const isStreaming = status === "streaming";
   const reasoningActive = isStreaming && !!reasoningPart && reasoningPart?.state === "streaming";
@@ -354,7 +397,8 @@ export function ChatMessages({
         const isStreaming = status === "streaming";
         const showError = !!errorMessage && isLastMessage;
         const canShowRetry = showError && !!onRetry;
-        const reorderedMessage = reorderTextAndReasoning(message);
+        const displayMessage = getDisplayMessage(messages as UIMessage[], index);
+        const reorderedMessage = reorderTextAndReasoning(displayMessage);
 
         return (
           <Message
@@ -388,7 +432,7 @@ export function ChatMessages({
                           size="icon"
                           className="size-7 rounded-full"
                           onClick={() => {
-                            const textContent = message.parts
+                            const textContent = (reorderedMessage.parts || [])
                               .map((part: any) => (part.type === "text" ? part.text : ""))
                               .join("");
                             handleCopy(message.id, textContent);

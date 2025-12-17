@@ -229,7 +229,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
 
   const handleTranslate = () => {
     if (!selectedText) return;
-    const prompt = `请将下面的英文逐句翻译成地道的中文，保留人名、地名和专有名词的原文，不要解释也不要总结，直接给出译文：\n\n${selectedText}`;
+    const prompt = `请将下面的英文逐句翻译成地道的中文，保留人名、地名和专有名词的原文，不要解释也不要总结，直接给出译文：\n\n${selectedText}\n\nAnswer the question directly.\nDo not include analysis, reasoning, thoughts, or explanations.\nOnly output the final result.`;
     iframeService.sendAskAIRequest(selectedText, prompt, bookId);
     setPopupPos(null);
   };

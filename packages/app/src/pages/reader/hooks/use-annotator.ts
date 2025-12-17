@@ -216,8 +216,19 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
   const handleTranslate = useCallback(() => { // 处理翻译请求
     if (!selection || !selection.text) return; // 无选中内容时退出
     const configuredLang = settings.globalReadSettings.translateTargetLang?.trim(); // 获取用户配置的目标语言
-    const targetLang = configuredLang || getTargetLang(); // 使用配置或根据环境推断语言
-    const question = targetLang ? `请将引用内容翻译成${targetLang}` : "请翻译这段内容"; // 构造翻译提问
+    // Older defaults used "EN" which makes the prompt unnatural for many models.
+    // Prefer translating to Chinese unless user explicitly configured a different target language.
+    const normalized = (configuredLang || "").trim();
+    const normalizedLower = normalized.toLowerCase();
+    const targetLang =
+      !normalized
+        ? "中文"
+        : normalized === "EN" || normalizedLower === "en" || normalizedLower === "english"
+          ? "中文"
+          : normalizedLower.startsWith("zh")
+            ? "中文"
+            : normalized;
+    const question = `请将引用内容翻译成${targetLang}。\n\nAnswer the question directly.\nDo not include analysis, reasoning, thoughts, or explanations.\nOnly output the final result.`; // 构造翻译提问
     iframeService.sendAskAIRequest(selection.text, question, bookId); // 复用 AI 询问入口发送请求
     handleDismissPopupAndSelection(); // 发送后关闭弹窗并清理选区
   }, [selection, settings.globalReadSettings.translateTargetLang, bookId, handleDismissPopupAndSelection]);
