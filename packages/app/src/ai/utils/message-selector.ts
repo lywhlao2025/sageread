@@ -1,12 +1,23 @@
 import type { UIMessage } from "@ai-sdk/react";
 
-export function selectValidMessages(messages: UIMessage[], maxCount = 8): UIMessage[] {
-  if (messages.length === 0) return [];
+/**
+ * Safari/WKWebView may not support Array.prototype.findLastIndex yet, so use a safe fallback.
+ */
+function findLastIndex<T>(items: T[], predicate: (item: T) => boolean): number {
+  for (let i = items.length - 1; i >= 0; i--) {
+    if (predicate(items[i])) return i;
+  }
+  return -1;
+}
 
-  const lastUserIndex = messages.findLastIndex((msg) => msg.role === "user");
+export function selectValidMessages(messages: UIMessage[], maxCount = 8): UIMessage[] {
+  const normalized = (Array.isArray(messages) ? messages : []).filter(Boolean) as UIMessage[];
+  if (normalized.length === 0) return [];
+
+  const lastUserIndex = findLastIndex(normalized, (msg) => msg.role === "user");
   if (lastUserIndex === -1) return [];
 
-  const fromLastUser = messages.slice(lastUserIndex);
+  const fromLastUser = normalized.slice(lastUserIndex);
 
   if (fromLastUser.length > maxCount) {
     return [fromLastUser[0]];
@@ -19,7 +30,7 @@ export function selectValidMessages(messages: UIMessage[], maxCount = 8): UIMess
 
   const remaining = maxCount - cleaned.length;
   if (remaining > 0 && lastUserIndex > 0) {
-    const history = cleanupAndValidate(messages.slice(0, lastUserIndex));
+    const history = cleanupAndValidate(normalized.slice(0, lastUserIndex));
     let historyToAdd = history.slice(-remaining);
 
     if (historyToAdd.length > 0 && historyToAdd[0].role !== "user") {

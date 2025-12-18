@@ -81,11 +81,19 @@ function isTranslationPrompt(message: UIMessage | undefined): boolean {
   );
 }
 
+/**
+ * Some local models output `<think>...</think>` even when the UI expects plain text.
+ * Strip these blocks so translation results render cleanly.
+ */
 function stripThinkBlocks(text: string): string {
   // Some local models output <think>...</think> blocks even without explicit reasoning support.
   return text.replace(/<think>[\s\S]*?<\/think>\s*/gi, "").trim();
 }
 
+/**
+ * For translation requests, hide reasoning parts from the assistant message
+ * (prevents showing "Thought for X seconds" for simple translate actions).
+ */
 function getDisplayMessage(messages: UIMessage[], index: number): UIMessage {
   const message = messages[index] as UIMessage;
   const prev = index > 0 ? (messages[index - 1] as UIMessage) : undefined;
@@ -106,6 +114,18 @@ function getDisplayMessage(messages: UIMessage[], index: number): UIMessage {
   return { ...message, parts: filtered };
 }
 
+/**
+ * Safari/WKWebView may not support Array.prototype.findLast yet, so use a safe fallback.
+ */
+function findLastPart<T>(parts: T[] | undefined, predicate: (part: T) => boolean): T | undefined {
+  if (!parts || parts.length === 0) return undefined;
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const part = parts[i];
+    if (predicate(part)) return part;
+  }
+  return undefined;
+}
+
 export function ChatMessages({
   messages,
   status,
@@ -117,14 +137,16 @@ export function ChatMessages({
   onAskSelection,
   onViewToolDetail,
 }: ChatMessagesProps) {
+  const safeMessages = (Array.isArray(messages) ? messages : []).filter(Boolean) as UIMessage[];
   const { scrollToBottom } = useStickToBottomContext();
   const isChatPage = useIsChatPage();
-  const rawLastMessage = messages[messages.length - 1] as UIMessage | undefined;
-  const lastMessage = reorderTextAndReasoning(getDisplayMessage(messages as UIMessage[], messages.length - 1));
-  const reasoningPart = lastMessage?.parts?.findLast((part: UIMessagePart<any, any>) => part.type === "reasoning");
+  const displayLastMessage =
+    safeMessages.length > 0 ? getDisplayMessage(safeMessages as UIMessage[], safeMessages.length - 1) : undefined;
+  const lastMessage = displayLastMessage ? reorderTextAndReasoning(displayLastMessage) : undefined;
+  const reasoningPart = findLastPart(lastMessage?.parts, (part: UIMessagePart<any, any>) => part.type === "reasoning");
   const isStreaming = status === "streaming";
   const reasoningActive = isStreaming && !!reasoningPart && reasoningPart?.state === "streaming";
-  const existingReasoningTimes = getReasoningTimes(lastMessage);
+  const existingReasoningTimes = lastMessage ? getReasoningTimes(lastMessage) : undefined;
 
   const [copiedMessageIds, setCopiedMessageIds] = useState<Set<string>>(new Set());
   const [audioStates, setAudioStates] = useState<Map<string, "idle" | "loading" | "playing" | "paused">>(new Map());
@@ -254,12 +276,12 @@ export function ChatMessages({
   }, [lastMessage?.parts, reasoningActive, onReasoningStreamingChange]);
 
   useEffect(() => {
-    if (messages.length === 0) return;
-    if (!hasInitialScrolled.current && messages.length > 0) {
+    if (safeMessages.length === 0) return;
+    if (!hasInitialScrolled.current && safeMessages.length > 0) {
       scrollToBottom("instant");
       hasInitialScrolled.current = true;
     }
-  }, [messages.length, scrollToBottom]);
+  }, [safeMessages.length, scrollToBottom]);
 
   useEffect(() => {
     if (scrollKey !== undefined && prevScrollKey.current !== scrollKey) {
@@ -390,14 +412,14 @@ export function ChatMessages({
 
   return (
     <ChatContainerContent className="select-auto py-6 first:mt-0">
-      {messages.map((message, index) => {
+      {safeMessages.map((message, index) => {
         const isAssistant = message.role === "assistant";
-        const isLastMessage = index === messages.length - 1;
+        const isLastMessage = index === safeMessages.length - 1;
         const isFirstMessage = index === 0;
         const isStreaming = status === "streaming";
         const showError = !!errorMessage && isLastMessage;
         const canShowRetry = showError && !!onRetry;
-        const displayMessage = getDisplayMessage(messages as UIMessage[], index);
+        const displayMessage = getDisplayMessage(safeMessages as UIMessage[], index);
         const reorderedMessage = reorderTextAndReasoning(displayMessage);
 
         return (

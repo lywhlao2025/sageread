@@ -25,6 +25,20 @@ function isOfficialOpenAIBaseUrl(baseUrl?: string): boolean {
 }
 
 /**
+ * DeepSeek provider can point to either the official DeepSeek endpoint or a local OpenAI-compatible endpoint.
+ * When it's not the official domain, treat it as OpenAI-compatible to avoid unsupported endpoints/features.
+ */
+function isOfficialDeepSeekBaseUrl(baseUrl?: string): boolean {
+  if (!baseUrl) return true;
+  try {
+    const u = new URL(baseUrl);
+    return u.hostname === "api.deepseek.com";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 动态创建AI提供商实例
  */
 export function createProviderInstance(config: ProviderConfig) {
@@ -33,6 +47,18 @@ export function createProviderInstance(config: ProviderConfig) {
 
   switch (providerId) {
     case "deepseek":
+      // Users sometimes point "deepseek" provider to a local OpenAI-compatible endpoint (e.g. Ollama).
+      // In that case, use the OpenAI-compatible adapter instead of DeepSeek's official SDK wiring.
+      if (!isOfficialDeepSeekBaseUrl(normalizedBaseUrl)) {
+        return createOpenAICompatible({
+          apiKey: apiKey || "",
+          baseURL: normalizedBaseUrl,
+          includeUsage: true,
+          name: "OpenAI Compatible",
+          fetch: fetchTauri,
+        });
+      }
+
       return createDeepSeek({
         apiKey: apiKey || "",
         baseURL: normalizedBaseUrl,
