@@ -68,6 +68,118 @@ async function unwrapEpubZipIfNeeded(
   }
 }
 
+async function normalizeEpubContainerPrefixIfNeeded(fileName: string, fileData: ArrayBuffer): Promise<ArrayBuffer | null> {
+  const lowerName = fileName.toLowerCase();
+  if (!lowerName.endsWith(".epub")) return null;
+
+  try {
+    const { configure, ZipReader, ZipWriter, BlobReader, BlobWriter } = await import("@zip.js/zip.js");
+    configure({ useWebWorkers: false });
+
+    const zipBlob = new Blob([fileData], { type: "application/epub+zip" });
+    const reader = new ZipReader(new BlobReader(zipBlob));
+    const entries = await reader.getEntries();
+
+    const containerAtRoot = entries.some((e: any) => (e?.filename || "").toLowerCase() === "meta-inf/container.xml");
+    if (containerAtRoot) {
+      await reader.close();
+      return null;
+    }
+
+    const containerSuffix = "meta-inf/container.xml";
+    const containerCandidates = entries.filter((e: any) => {
+      const name = (e?.filename || "").toLowerCase();
+      return (
+        name.endsWith(`/${containerSuffix}`) &&
+        !name.startsWith("__macosx/") &&
+        !name.includes("/__macosx/") &&
+        !name.includes("/.ds_store")
+      );
+    });
+
+    if (containerCandidates.length === 0) {
+      await reader.close();
+      return null;
+    }
+
+    // Choose the shortest prefix that contains META-INF/container.xml (most likely the real root folder).
+    containerCandidates.sort((a: any, b: any) => (a.filename?.length ?? 0) - (b.filename?.length ?? 0));
+    const chosen = containerCandidates[0]!;
+    const prefixLen = chosen.filename.length - "META-INF/container.xml".length;
+    const prefix = chosen.filename.slice(0, Math.max(0, prefixLen));
+    const lowerPrefix = prefix.toLowerCase();
+
+    const candidatesToCopy = entries
+      .filter((e: any) => {
+        const name = (e?.filename || "").toLowerCase();
+        return name.startsWith(lowerPrefix) && !name.startsWith("__macosx/");
+      })
+      .filter((e: any) => !e?.directory);
+
+    if (candidatesToCopy.length === 0) {
+      await reader.close();
+      return null;
+    }
+
+    // Repack: strip the leading folder prefix so container.xml sits at META-INF/container.xml
+    const zipWriteOptions = {
+      lastAccessDate: new Date(0),
+      lastModDate: new Date(0),
+      extendedTimestamp: false,
+    } as const;
+    const writer = new ZipWriter(new BlobWriter("application/epub+zip"), { extendedTimestamp: false });
+
+    const mapped = candidatesToCopy
+      .map((e: any) => {
+        const original = e.filename as string;
+        const stripped = original.slice(prefix.length).replace(/^\/+/, "");
+        return { entry: e, name: stripped, lower: stripped.toLowerCase() };
+      })
+      .filter((x: any) => x.name && !x.lower.startsWith("__macosx/") && x.lower !== ".ds_store");
+
+    // Add mimetype first if present (some readers are strict about ordering).
+    mapped.sort((a: any, b: any) => {
+      const am = a.lower === "mimetype" ? 0 : 1;
+      const bm = b.lower === "mimetype" ? 0 : 1;
+      if (am !== bm) return am - bm;
+      return a.name.localeCompare(b.name);
+    });
+
+    for (const item of mapped) {
+      const blob = (await item.entry.getData?.(new BlobWriter())) as Blob | undefined;
+      if (!blob) continue;
+      // Some readers are strict about `mimetype` being the first entry and uncompressed.
+      const options = item.lower === "mimetype" ? ({ ...zipWriteOptions, level: 0 } as any) : (zipWriteOptions as any);
+      await writer.add(item.name, new BlobReader(blob), options);
+    }
+
+    const outBlob = await writer.close();
+    await reader.close();
+    return await outBlob.arrayBuffer();
+  } catch (e) {
+    console.warn("无法规范化 EPUB 结构（将按原文件处理）:", e);
+    return null;
+  }
+}
+
+export async function repairStoredEpubForIndexing(bookId: string): Promise<void> {
+  const baseDir = await appDataDir();
+  const epubPath = await join(baseDir, "books", bookId, "book.epub");
+
+  try {
+    const data = await readFile(epubPath);
+    const buf =
+      data instanceof ArrayBuffer
+        ? data
+        : (data as Uint8Array).buffer.slice((data as Uint8Array).byteOffset, (data as Uint8Array).byteOffset + (data as Uint8Array).byteLength);
+    const normalized = await normalizeEpubContainerPrefixIfNeeded("book.epub", buf);
+    if (!normalized) return;
+    await writeFile(epubPath, new Uint8Array(normalized));
+  } catch (e) {
+    console.warn("修复 EPUB 文件失败（将继续尝试索引原文件）:", e);
+  }
+}
+
 export async function uploadBook(file: File): Promise<SimpleBook> {
   try {
     const format = getBookFormat(file.name);
@@ -91,6 +203,16 @@ export async function uploadBook(file: File): Promise<SimpleBook> {
       finalFileName = unwrapped.fileName;
       fileData = unwrapped.fileData;
       finalFileSize = fileData.byteLength;
+    }
+
+    // Some malformed EPUBs are ZIPs that wrap the real EPUB contents under a single top-level folder.
+    // Normalize them so META-INF/container.xml is at the ZIP root (required by many EPUB parsers).
+    if (format === "EPUB") {
+      const normalized = await normalizeEpubContainerPrefixIfNeeded(finalFileName, fileData);
+      if (normalized) {
+        fileData = normalized;
+        finalFileSize = fileData.byteLength;
+      }
     }
 
     await writeFile(tempFilePath, new Uint8Array(fileData));
@@ -330,6 +452,9 @@ export async function indexEpub(
   params: { dimension?: number; embeddingsUrl?: string; model?: string; apiKey?: string | null },
 ): Promise<EpubIndexResult> {
   const { dimension = 1024, embeddingsUrl, model = "local-embed", apiKey = null } = params;
+
+  // Best-effort repair for malformed EPUB structure before indexing (required by Rust EPUB parser).
+  await repairStoredEpubForIndexing(bookId);
 
   const res = await invoke<EpubIndexResult>("plugin:epub|index_epub", {
     bookId,

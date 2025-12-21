@@ -3,7 +3,7 @@ import { useDownloadImage } from "@/hooks/use-download-image";
 import { useModelSelector } from "@/hooks/use-model-selector";
 import type { BookTag } from "@/pages/library/hooks/use-tags-management";
 import { type AITagSuggestion, generateTagsWithAI } from "@/services/ai-tag-service";
-import { updateBookVectorizationMeta } from "@/services/book-service";
+import { repairStoredEpubForIndexing, updateBookVectorizationMeta } from "@/services/book-service";
 import { type EpubIndexResult, indexEpub } from "@/services/book-service";
 import { createTag, getTags } from "@/services/tag-service";
 import { useLayoutStore } from "@/store/layout-store";
@@ -199,6 +199,9 @@ export default function BookItem({ book, availableTags = [], onDelete, onUpdate,
     try {
       toast.info("开始向量化...");
       setVectorizeProgress(0);
+      // Best-effort: repair malformed EPUB structure (e.g., everything wrapped under a top-level folder)
+      // so the Rust indexer can read META-INF/container.xml at ZIP root.
+      await repairStoredEpubForIndexing(book.id);
       await updateBookVectorizationMeta(book.id, {
         status: "processing",
         model: vectorConfig.model,
