@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { useT } from "@/hooks/use-i18n";
 import { Loader2, Plus } from "lucide-react";
 import { useState } from "react";
 import SkillEditorDialog from "./components/skill-editor-dialog";
@@ -6,6 +7,7 @@ import SkillItem from "./components/skill-item";
 import { type Skill, useSkills } from "./hooks/use-skills";
 
 export default function SkillsPage() {
+  const t = useT();
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
 
@@ -38,7 +40,7 @@ export default function SkillsPage() {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
-          <p className="text-destructive">加载技能列表失败</p>
+          <p className="text-destructive">{t("skills.loadFail", "加载技能列表失败")}</p>
           <p className="text-muted-foreground text-sm">{error.message}</p>
         </div>
       </div>
@@ -49,12 +51,12 @@ export default function SkillsPage() {
     <div className="flex h-full flex-col p-3">
       <div className="mb-4 flex items-start justify-between">
         <div className="space-y-2">
-          <h1 className="font-bold text-3xl dark:border-neutral-700">技能库</h1>
-          <p className="text-neutral-600 dark:text-neutral-400">管理 AI 助手的技能和标准操作流程</p>
+          <h1 className="font-bold text-3xl dark:border-neutral-700">{t("skills.title", "技能库")}</h1>
+          <p className="text-neutral-600 dark:text-neutral-400">{t("skills.subtitle", "管理 AI 助手的技能和标准操作流程")}</p>
         </div>
         <Button variant="soft" size="sm" onClick={handleCreate}>
           <Plus className="size-4" />
-          新建技能
+          {t("skills.new", "新建技能")}
         </Button>
       </div>
 
@@ -62,10 +64,10 @@ export default function SkillsPage() {
         {!skills || skills.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
-              <p className="mb-4 text-muted-foreground">还没有任何技能</p>
+              <p className="mb-4 text-muted-foreground">{t("skills.empty", "还没有任何技能")}</p>
               <Button onClick={handleCreate}>
                 <Plus className="mr-2 size-4" />
-                创建第一个技能
+                {t("skills.createFirst", "创建第一个技能")}
               </Button>
             </div>
           </div>

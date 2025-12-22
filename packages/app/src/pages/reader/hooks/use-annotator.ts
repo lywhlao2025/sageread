@@ -6,6 +6,7 @@ import type { HighlightColor, HighlightStyle } from "@/types/book";
 import type { BookMeta } from "@/types/note";
 import { type Position, type TextSelection, getPopupPosition, getPosition } from "@/utils/sel";
 import { getTargetLang } from "@/utils/misc"; // 获取环境默认的翻译目标语言
+import { useLocale, useT } from "@/hooks/use-i18n";
 import { useQueryClient } from "@tanstack/react-query";
 import * as CFI from "foliate-js/epubcfi.js";
 import { useCallback, useEffect, useState } from "react";
@@ -39,6 +40,8 @@ interface UseAnnotatorProps {
 }
 
 export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
+  const t = useT();
+  const locale = useLocale();
   const { settings } = useAppSettingsStore();
   const config = useReaderStore((state) => state.config)!;
   const progress = useReaderStore((state) => state.progress)!;
@@ -64,7 +67,7 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
   );
 
   const popupPadding = 10;
-  const annotPopupWidth = Math.min(globalViewSettings?.vertical ? 320 : 280, window.innerWidth - 2 * popupPadding);
+  const annotPopupWidth = Math.min(globalViewSettings?.vertical ? 320 : 390, window.innerWidth - 2 * popupPadding);
   const annotPopupHeight = 36;
 
   // Popup 相关函数
@@ -222,16 +225,21 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
     const normalizedLower = normalized.toLowerCase();
     const targetLang =
       !normalized
-        ? "中文"
+        ? getTargetLang()
         : normalized === "EN" || normalizedLower === "en" || normalizedLower === "english"
-          ? "中文"
+          ? locale === "en"
+            ? "English"
+            : "中文"
           : normalizedLower.startsWith("zh")
             ? "中文"
             : normalized;
-    const question = `请将引用内容翻译成${targetLang}。\n\nAnswer the question directly.\nDo not include analysis, reasoning, thoughts, or explanations.\nOnly output the final result.`; // 构造翻译提问
+    const question = `${t("reader.translateQuoted", "请将引用内容翻译成{lang}。", { lang: targetLang })}\n\n${t(
+      "reader.translateDirectives",
+      "Answer the question directly.\nDo not include analysis, reasoning, thoughts, or explanations.\nOnly output the final result.",
+    )}`; // 构造翻译提问
     iframeService.sendAskAIRequest(selection.text, question, bookId); // 复用 AI 询问入口发送请求
     handleDismissPopupAndSelection(); // 发送后关闭弹窗并清理选区
-  }, [selection, settings.globalReadSettings.translateTargetLang, bookId, handleDismissPopupAndSelection]);
+  }, [selection, settings.globalReadSettings.translateTargetLang, bookId, handleDismissPopupAndSelection, locale, t]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   const handleAskAI = useCallback(() => {

@@ -1,6 +1,7 @@
 import { useNotepad } from "@/components/notepad/hooks";
 import { createBookNote, deleteBookNote } from "@/services/book-note-service";
 import { iframeService } from "@/services/iframe-service";
+import { useLocale, useT } from "@/hooks/use-i18n";
 import { useReaderStore } from "@/pages/reader/components/reader-provider";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FiCopy, FiHelpCircle, FiMessageCircle } from "react-icons/fi";
@@ -28,6 +29,8 @@ interface PdfViewerProps {
 GlobalWorkerOptions.workerSrc = workerSrc as string;
 
 const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
+  const t = useT();
+  const locale = useLocale();
   const { handleCreateNote } = useNotepad();
   const bookData = useReaderStore((state) => state.bookData);
   const queryClient = useQueryClient();
@@ -80,7 +83,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
         linkService.setDocument(pdfDoc);
       } catch (e) {
         console.error("Failed to init PDF viewer:", e);
-        setLoadError("PDF 加载失败");
+        setLoadError(locale === "en" ? "Failed to load PDF" : "PDF 加载失败");
       }
     };
 
@@ -229,7 +232,11 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
 
   const handleTranslate = () => {
     if (!selectedText) return;
-    const prompt = `请将下面的英文逐句翻译成地道的中文，保留人名、地名和专有名词的原文，不要解释也不要总结，直接给出译文：\n\n${selectedText}\n\nAnswer the question directly.\nDo not include analysis, reasoning, thoughts, or explanations.\nOnly output the final result.`;
+    const targetLang = locale === "en" ? "English" : "中文";
+    const prompt = `${t("reader.translateTextPrompt", undefined, { lang: targetLang, text: selectedText })}\n\n${t(
+      "reader.translateDirectives",
+      "Answer the question directly.\nDo not include analysis, reasoning, thoughts, or explanations.\nOnly output the final result.",
+    )}`;
     iframeService.sendAskAIRequest(selectedText, prompt, bookId);
     setPopupPos(null);
   };
@@ -296,7 +303,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
             className="flex items-center gap-1 px-2 py-1 hover:text-primary-600 dark:hover:text-primary-300"
           >
             <FiCopy size={14} />
-            <span>复制</span>
+            <span>{t("reader.action.copy")}</span>
           </button>
           <div className="mx-1 h-5 w-px bg-neutral-200 dark:bg-neutral-700" />
           <button
@@ -304,7 +311,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
             className="flex items-center gap-1 px-2 py-1 hover:text-primary-600 dark:hover:text-primary-300"
           >
             <FiHelpCircle size={14} />
-            <span>解释</span>
+            <span>{t("reader.action.explain")}</span>
           </button>
           <div className="mx-1 h-5 w-px bg-neutral-200 dark:bg-neutral-700" />
           <button
@@ -312,7 +319,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
             className="flex items-center gap-1 px-2 py-1 hover:text-primary-600 dark:hover:text-primary-300"
           >
             <MdTranslate size={15} />
-            <span>翻译</span>
+            <span>{t("reader.action.translate")}</span>
           </button>
           <div className="mx-1 h-5 w-px bg-neutral-200 dark:bg-neutral-700" />
           <button
@@ -320,7 +327,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
             className="flex items-center gap-1 px-2 py-1 hover:text-primary-600 dark:hover:text-primary-300"
           >
             <FiMessageCircle size={14} />
-            <span>询问AI</span>
+            <span>{t("reader.action.askAI")}</span>
           </button>
           <div className="mx-1 h-5 w-px bg-neutral-200 dark:bg-neutral-700" />
           <button
@@ -328,7 +335,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
             className="flex items-center gap-1 px-2 py-1 hover:text-primary-600 dark:hover:text-primary-300"
           >
             <PiHighlighterFill size={14} />
-            <span>标注</span>
+            <span>{t("reader.action.highlight")}</span>
           </button>
           <div className="mx-1 h-5 w-px bg-neutral-200 dark:bg-neutral-700" />
           <button
@@ -347,7 +354,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
             className="flex items-center gap-1 px-2 py-1 text-red-500 hover:text-red-600 disabled:opacity-50 disabled:hover:text-red-500"
           >
             <RiDeleteBinLine size={14} />
-            <span>删除</span>
+            <span>{t("reader.action.delete")}</span>
           </button>
           <div className="mx-1 h-5 w-px bg-neutral-200 dark:bg-neutral-700" />
           <button
@@ -355,7 +362,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
             className="flex items-center gap-1 px-2 py-1 hover:text-primary-600 dark:hover:text-primary-300"
           >
             <NotebookPen size={14} />
-            <span>笔记</span>
+            <span>{t("reader.action.note")}</span>
           </button>
         </div>
       )}
@@ -381,14 +388,14 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
           style={{ left: popupPos.x - 170, top: popupPos.y + 20 }}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <div className="mb-2 text-xs text-neutral-500">引用</div>
+          <div className="mb-2 text-xs text-neutral-500">{t("reader.note.quote")}</div>
           <div className="line-clamp-3 rounded bg-neutral-50 p-2 text-sm text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
             {selectedText}
           </div>
-          <div className="mt-3 text-xs text-neutral-500">补充内容</div>
+          <div className="mt-3 text-xs text-neutral-500">{t("reader.note.addition")}</div>
           <textarea
             className="mt-1 h-20 w-full resize-none rounded border border-neutral-200 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
-            placeholder="输入你的想法，可留空"
+            placeholder={t("reader.note.placeholder")}
             value={noteExtra}
             onChange={(e) => setNoteExtra(e.target.value)}
           />
@@ -402,7 +409,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
                 setPopupPos(null);
               }}
             >
-              取消
+              {t("common.cancel")}
             </button>
             <button
               className="rounded-md bg-neutral-900 px-3 py-1 text-white hover:bg-neutral-800 dark:bg-primary-500 dark:hover:bg-primary-600 disabled:opacity-50"
@@ -431,7 +438,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
                 }
               }}
             >
-              确定
+              {t("common.confirm")}
             </button>
           </div>
         </div>

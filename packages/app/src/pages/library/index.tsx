@@ -2,6 +2,7 @@ import SettingsDialog from "@/components/settings/settings-dialog";
 import { Button } from "@/components/ui/button";
 import Spinner from "@/components/ui/spinner";
 import { useBookUpload } from "@/hooks/use-book-upload";
+import { useT } from "@/hooks/use-i18n";
 import { useSafeAreaInsets } from "@/hooks/use-safe-areaInsets";
 import { useTheme } from "@/hooks/use-theme";
 import { useUICSS } from "@/hooks/use-ui-css";
@@ -22,6 +23,7 @@ import { useTagsManagement } from "./hooks/use-tags-management";
 import { useTagsOperations } from "./hooks/use-tags-operations";
 
 export default function NewLibraryPage() {
+  const t = useT();
   const { searchQuery, booksWithStatus, isLoading, refreshBooks } = useLibraryStore();
   const { isSettingsDialogOpen, toggleSettingsDialog } = useAppSettingsStore();
   const insets = useSafeAreaInsets();
@@ -107,8 +109,10 @@ export default function NewLibraryPage() {
           <div className="flex flex-col items-center gap-4 rounded-2xl border-2 border-neutral-400 border-dashed bg-white/90 px-30 py-16 shadow-lg dark:border-neutral-500 dark:bg-neutral-800/90">
             <UploadIcon className="h-12 w-12 text-neutral-600 dark:text-neutral-400" />
             <div className="text-center">
-              <h3 className="font-semibold text-lg text-neutral-900 dark:text-neutral-100">拖放文件以上传</h3>
-              <p className="text-neutral-600 text-sm dark:text-neutral-400">松开以上传您的书籍</p>
+              <h3 className="font-semibold text-lg text-neutral-900 dark:text-neutral-100">
+                {t("library.dragDrop.title", "拖放文件以上传")}
+              </h3>
+              <p className="text-neutral-600 text-sm dark:text-neutral-400">{t("library.dragDrop.desc", "松开以上传您的书籍")}</p>
             </div>
           </div>
         </div>
@@ -118,19 +122,19 @@ export default function NewLibraryPage() {
         <div className="flex shrink-0 items-center justify-between px-3 pt-3">
           <h3 className="font-bold text-3xl dark:border-neutral-700">
             {selectedTagFromUrl === "all"
-              ? "我的图书"
-              : tags.find((t) => t.id === selectedTagFromUrl)?.name || "我的图书"}
+              ? t("library.myBooks", "我的图书")
+              : tags.find((tag) => tag.id === selectedTagFromUrl)?.name || t("library.myBooks", "我的图书")}
           </h3>
           <Button onClick={triggerFileSelect} disabled={isUploading} variant="soft" size="sm">
             {isUploading ? (
               <>
                 <div className="h-4 w-4 animate-spin rounded-full border border-white/30 border-t-white" />
-                上传中...
+                {t("library.importing", "上传中...")}
               </>
             ) : (
               <>
                 <Plus size={16} />
-                添加书籍
+                {t("library.addBook", "添加书籍")}
               </>
             )}
           </Button>
@@ -147,7 +151,10 @@ export default function NewLibraryPage() {
             <div className="mx-auto">
               {searchQuery.trim() && (
                 <div className="mb-4 text-base-content/70 text-sm">
-                  找到 {visibleBooks.length} 本书籍，搜索词：'{searchQuery}'
+                  {t("library.search.found", "找到 {count} 本书籍，搜索词：'{query}'", {
+                    count: visibleBooks.length,
+                    query: searchQuery,
+                  })}
                 </div>
               )}
 
@@ -184,8 +191,10 @@ export default function NewLibraryPage() {
           </div>
         ) : hasLibraryBooks && searchQuery.trim() ? (
           <div className="flex flex-1 flex-col items-center justify-center p-8 px-2 text-center">
-            <div className="text-base-content/50 text-lg">没有找到 '{searchQuery}' 相关的书籍</div>
-            <div className="mt-2 text-base-content/40 text-sm">尝试使用不同的关键词搜索</div>
+            <div className="text-base-content/50 text-lg">
+              {t("library.search.empty", "没有找到 '{query}' 相关的书籍", { query: searchQuery })}
+            </div>
+            <div className="mt-2 text-base-content/40 text-sm">{t("library.search.hint", "尝试使用不同的关键词搜索")}</div>
           </div>
         ) : (
           <div className="flex-1 px-2">

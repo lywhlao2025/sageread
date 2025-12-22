@@ -6,6 +6,7 @@ import { useBooksOperations } from "@/pages/library/hooks/use-books-operations";
 import { useLibraryUI } from "@/pages/library/hooks/use-library-ui";
 import { useTagsManagement } from "@/pages/library/hooks/use-tags-management";
 import { useTagsOperations } from "@/pages/library/hooks/use-tags-operations";
+import { useT } from "@/hooks/use-i18n";
 import { useAppSettingsStore } from "@/store/app-settings-store";
 import { useLibraryStore } from "@/store/library-store";
 import clsx from "clsx";
@@ -26,6 +27,7 @@ interface ActionButtonItem {
 }
 
 export default function Sidebar() {
+  const t = useT();
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -107,29 +109,29 @@ export default function Sidebar() {
   const navigationItems: NavigationItem[] = [
     {
       path: "/",
-      label: "图书馆",
+      label: t("nav.library", "图书馆"),
       icon: Library,
     },
     {
       path: "/chat",
-      label: "聊天",
+      label: t("nav.chat", "聊天"),
       icon: Brain,
     },
     {
       path: "/skills",
-      label: "技能库",
+      label: t("nav.skills", "技能库"),
       icon: Lightbulb,
     },
     {
       path: "/statistics",
-      label: "阅读统计",
+      label: t("nav.stats", "阅读统计"),
       icon: BarChart3,
     },
   ];
 
   const actionButtons: ActionButtonItem[] = [
     {
-      label: "设置",
+      label: t("nav.settings", "设置"),
       icon: Settings,
       onClick: toggleSettingsDialog,
     },

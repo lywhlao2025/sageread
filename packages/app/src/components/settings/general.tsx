@@ -6,6 +6,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useT } from "@/hooks/use-i18n";
+import { useI18nStore } from "@/store/i18n-store";
 import { useThemeStore } from "@/store/theme-store";
 import type { ThemeMode } from "@/styles/themes";
 import { getVersion } from "@tauri-apps/api/app";
@@ -19,6 +21,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 export default function GeneralSettings() {
+  const t = useT();
+  const { preference, setPreference } = useI18nStore();
   const [dataPath, setDataPath] = useState("");
   const [isCopied, setIsCopied] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
@@ -27,9 +31,9 @@ export default function GeneralSettings() {
   const { themeMode, autoScroll, swapSidebars, setThemeMode, setAutoScroll, setSwapSidebars } = useThemeStore();
 
   const themeModeOptions = [
-    { value: "auto" as ThemeMode, label: "系统" },
-    { value: "light" as ThemeMode, label: "亮色" },
-    { value: "dark" as ThemeMode, label: "暗色" },
+    { value: "auto" as ThemeMode, label: t("settings.theme.auto", "系统") },
+    { value: "light" as ThemeMode, label: t("settings.theme.light", "亮色") },
+    { value: "dark" as ThemeMode, label: t("settings.theme.dark", "暗色") },
   ];
 
   useEffect(() => {
@@ -73,21 +77,21 @@ export default function GeneralSettings() {
     try {
       const update = await check();
       if (update) {
-        toast.success(`发现新版本 ${update.version}`, {
-          description: "正在下载更新...",
+        toast.success(t("toast.foundNewVersion", `发现新版本 ${update.version}`, { version: update.version }), {
+          description: t("settings.checkUpdate.downloading", "正在下载更新..."),
           duration: 5000,
         });
         await update.downloadAndInstall();
-        toast.success("更新已下载", {
-          description: "请重启应用以完成更新",
+        toast.success(t("toast.updateDownloaded", "更新已下载"), {
+          description: t("settings.checkUpdate.restart", "请重启应用以完成更新"),
           duration: 10000,
         });
       } else {
-        toast.info("当前已是最新版本");
+        toast.info(t("toast.latest", "当前已是最新版本"));
       }
     } catch (error) {
       console.error("Check for updates failed:", error);
-      toast.error("检查更新失败", {
+      toast.error(t("toast.checkUpdateFail", "检查更新失败"), {
         description: error instanceof Error ? error.message : "未知错误",
       });
     } finally {
@@ -100,29 +104,31 @@ export default function GeneralSettings() {
   };
 
   const getCurrentThemeModeLabel = () => {
-    return themeModeOptions.find((option) => option.value === themeMode)?.label || "系统";
+    return themeModeOptions.find((option) => option.value === themeMode)?.label || t("settings.theme.auto", "系统");
   };
 
   return (
     <div className="space-y-8 p-4 pt-3">
       <section className="rounded-lg bg-muted/80 p-4">
-        <h2 className="text mb-4 dark:text-neutral-200">关于</h2>
+        <h2 className="text mb-4 dark:text-neutral-200">{t("settings.about", "关于")}</h2>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text dark:text-neutral-200">应用版本</span>
+            <span className="text dark:text-neutral-200">{t("settings.appVersion", "应用版本")}</span>
             <p className=" text-neutral-600 text-xs dark:text-neutral-400">v{appVersion}</p>
           </div>
 
           <div className="flex items-center justify-between">
-            <span className="text dark:text-neutral-200">开发者</span>
+            <span className="text dark:text-neutral-200">{t("settings.developer", "开发者")}</span>
             <p className="text-neutral-600 text-xs dark:text-neutral-400">lywhlao2025</p>
           </div>
 
           <div className="flex items-center justify-between">
             <div>
-              <span className="text dark:text-neutral-200">检查更新</span>
-              <p className="mt-2 text-neutral-600 text-xs dark:text-neutral-400">检查是否有新版本可用</p>
+              <span className="text dark:text-neutral-200">{t("settings.checkUpdate", "检查更新")}</span>
+              <p className="mt-2 text-neutral-600 text-xs dark:text-neutral-400">
+                {t("settings.checkUpdate.desc", "检查是否有新版本可用")}
+              </p>
             </div>
             <Button
               size="sm"
@@ -132,19 +138,49 @@ export default function GeneralSettings() {
               className="gap-2"
             >
               <RefreshCw className={clsx("size-4", isCheckingUpdate && "animate-spin")} />
-              {isCheckingUpdate ? "检查中..." : "检查更新"}
+              {isCheckingUpdate ? t("settings.checking", "检查中...") : t("settings.checkUpdate", "检查更新")}
             </Button>
           </div>
         </div>
       </section>
 
       <section className="rounded-lg bg-muted/80 p-4">
-        <h2 className="text mb-4 dark:text-neutral-200">外观</h2>
+        <h2 className="text mb-4 dark:text-neutral-200">{t("settings.appearance", "外观")}</h2>
         <div className="space-y-4">
           <div className="flex items-start justify-between">
             <div>
-              <span className="text dark:text-neutral-200">明暗模式</span>
-              <p className="mt-2 text-neutral-600 text-xs dark:text-neutral-400">选择明暗模式偏好</p>
+              <span className="text dark:text-neutral-200">{t("settings.language", "语言")}</span>
+              <p className="mt-2 text-neutral-600 text-xs dark:text-neutral-400">
+                {t("settings.language.desc", "界面语言（默认跟随系统）")}
+              </p>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" className="w-32 justify-between">
+                  {preference === "system"
+                    ? t("settings.language.system", "跟随系统")
+                    : preference === "en"
+                      ? t("settings.language.en", "英语")
+                      : t("settings.language.zh", "中文")}
+                  <ChevronDownIcon className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-32">
+                <DropdownMenuItem onClick={() => setPreference("system")}>
+                  {t("settings.language.system", "跟随系统")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setPreference("zh")}>{t("settings.language.zh", "中文")}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setPreference("en")}>{t("settings.language.en", "英语")}</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          <div className="flex items-start justify-between">
+            <div>
+              <span className="text dark:text-neutral-200">{t("settings.themeMode", "明暗模式")}</span>
+              <p className="mt-2 text-neutral-600 text-xs dark:text-neutral-400">
+                {t("settings.themeMode.desc", "选择明暗模式偏好")}
+              </p>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -169,8 +205,10 @@ export default function GeneralSettings() {
 
           <div className="flex items-center justify-between">
             <div>
-              <span className="text dark:text-neutral-200">自动滚动</span>
-              <p className="mt-2 text-neutral-600 text-xs dark:text-neutral-400">聊天时自动滚动到最新消息</p>
+              <span className="text dark:text-neutral-200">{t("settings.autoScroll", "自动滚动")}</span>
+              <p className="mt-2 text-neutral-600 text-xs dark:text-neutral-400">
+                {t("settings.autoScroll.desc", "聊天时自动滚动到最新消息")}
+              </p>
             </div>
             <Checkbox
               checked={autoScroll}
@@ -181,8 +219,10 @@ export default function GeneralSettings() {
 
           <div className="flex items-center justify-between">
             <div>
-              <span className="text dark:text-neutral-200">对调侧边栏</span>
-              <p className="mt-2 text-neutral-600 text-xs dark:text-neutral-400">将聊天和笔记侧边栏位置对调</p>
+              <span className="text dark:text-neutral-200">{t("settings.swapSidebars", "对调侧边栏")}</span>
+              <p className="mt-2 text-neutral-600 text-xs dark:text-neutral-400">
+                {t("settings.swapSidebars.desc", "将聊天和笔记侧边栏位置对调")}
+              </p>
             </div>
             <Checkbox
               checked={swapSidebars}
@@ -194,12 +234,12 @@ export default function GeneralSettings() {
       </section>
 
       <section className="rounded-lg bg-muted/80 p-4">
-        <h2 className="text mb-4 dark:text-neutral-200">数据文件夹</h2>
+        <h2 className="text mb-4 dark:text-neutral-200">{t("settings.dataFolder", "数据文件夹")}</h2>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <span className="text-sm dark:text-neutral-200">应用数据</span>
+              <span className="text-sm dark:text-neutral-200">{t("settings.appData", "应用数据")}</span>
               <div className="mt-2 flex items-center gap-2">
                 <span className="rounded bg-background px-2 py-1 text-sm dark:bg-neutral-700 dark:text-neutral-300">
                   {dataPath}

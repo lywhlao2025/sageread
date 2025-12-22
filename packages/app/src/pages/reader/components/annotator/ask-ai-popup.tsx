@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { useT } from "@/hooks/use-i18n";
 import { ArrowUp } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
@@ -13,6 +14,7 @@ interface AskAIPopupProps {
 const AskAIPopup: React.FC<AskAIPopupProps> = ({ style, selectedText, onClose, onSendQuery }) => {
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const t = useT();
 
   useEffect(() => {
     if (inputRef.current) {
@@ -61,7 +63,7 @@ const AskAIPopup: React.FC<AskAIPopupProps> = ({ style, selectedText, onClose, o
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="询问AI任何问题"
+            placeholder={t("reader.askAI.placeholder")}
             className="h-9 w-full rounded-lg border border-neutral-200 py-2 pr-10 pl-3 text-sm focus:outline-none dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-200 dark:placeholder-neutral-400"
           />
           <Button

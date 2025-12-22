@@ -1,6 +1,7 @@
 import { Anthropic, DeepSeek, Gemini, Grok, OpenAI, OpenRouter } from "@/components/icons";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useT } from "@/hooks/use-i18n";
 import { cn } from "@/lib/utils";
 import { useProviderStore } from "@/store/provider-store";
 import { ChevronRight, Server } from "lucide-react";
@@ -59,6 +60,7 @@ export function ProviderIcons({ providerId }: { providerId: string }): React.Rea
 }
 
 export default function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
+  const t = useT();
   const [activeKey, setActiveKey] = useState<SettingsKey>("general");
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set(["model-providers"]));
   const { modelProviders } = useProviderStore();
@@ -183,10 +185,10 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[80vh] min-h-[80vh] min-w-[800px] max-w-[800px] flex-col gap-0 overflow-y-auto p-0">
-        <DialogHeader className="flex-shrink-0 border-neutral-200 border-b px-3 py-4 dark:border-neutral-800 dark:bg-neutral-900">
-          <DialogTitle className="dark:text-neutral-100">设置</DialogTitle>
-        </DialogHeader>
+        <DialogContent className="flex max-h-[80vh] min-h-[80vh] min-w-[800px] max-w-[800px] flex-col gap-0 overflow-y-auto p-0">
+          <DialogHeader className="flex-shrink-0 border-neutral-200 border-b px-3 py-4 dark:border-neutral-800 dark:bg-neutral-900">
+          <DialogTitle className="dark:text-neutral-100">{t("settings.title", "设置")}</DialogTitle>
+          </DialogHeader>
 
         <div className="flex min-h-0 flex-1 dark:bg-neutral-900">
           <div className="w-48 flex-shrink-0 overflow-y-auto border-neutral-200 border-r p-3 px-2 dark:border-neutral-800 dark:bg-neutral-900">

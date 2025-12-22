@@ -1,10 +1,12 @@
 import type { ChatContext } from "@/hooks/use-chat-state";
+import { t } from "@/i18n";
+import type { Locale } from "@/i18n/dict";
 import { getSkills } from "@/services/skill-service";
 import { useLlamaStore } from "@/store/llama-store";
 import { appDataDir } from "@tauri-apps/api/path";
 import { exists, readTextFile } from "@tauri-apps/plugin-fs";
 
-export async function buildReadingPrompt(chatContext: ChatContext | undefined): Promise<string> {
+export async function buildReadingPrompt(chatContext: ChatContext | undefined, locale: Locale = "zh"): Promise<string> {
   const activeBookId = chatContext?.activeBookId;
   const semanticContext = chatContext?.activeContext;
   const sectionLabel = chatContext?.activeSectionLabel;
@@ -47,21 +49,25 @@ export async function buildReadingPrompt(chatContext: ChatContext | undefined): 
   let prompt = base;
 
   if (activeSkillNames && activeSkillNames.length > 0) {
-    prompt += "\n\n—— 可用技能库 ——\n";
-    prompt += "当前系统已配置以下技能，当用户需求匹配时，请先调用 getSkills 工具获取详细执行步骤：\n";
+    prompt += `\n\n${t(locale, "prompt.skills.header", "—— 可用技能库 ——")}\n`;
+    prompt += `${t(
+      locale,
+      "prompt.skills.hint",
+      "当前系统已配置以下技能，当用户需求匹配时，请先调用 getSkills 工具获取详细执行步骤：",
+    )}\n`;
     prompt += activeSkillNames.map((name) => `• ${name}`).join("\n");
   }
 
   if (semanticContext && semanticContext.trim().length > 0) {
-    prompt += `\n\n【语义上下文】\n${semanticContext}`;
+    prompt += `\n\n${t(locale, "prompt.context.semantic", "【语义上下文】")}\n${semanticContext}`;
   }
 
   if (sectionLabel && sectionLabel.trim().length > 0) {
-    prompt += `\n\n【当前阅读章节】\n${sectionLabel}`;
+    prompt += `\n\n${t(locale, "prompt.context.section", "【当前阅读章节】")}\n${sectionLabel}`;
   }
 
   if (metadataMd && metadataMd.trim().length > 0) {
-    prompt += `\n\n【当前阅读图书元信息与目录】\n${metadataMd}`;
+    prompt += `\n\n${t(locale, "prompt.context.meta", "【当前阅读图书元信息与目录】")}\n${metadataMd}`;
   }
 
   return prompt;

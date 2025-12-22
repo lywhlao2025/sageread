@@ -21,7 +21,7 @@ const PopupButton: React.FC<PopupButtonProps> = ({ label, Icon, onClick, isVerti
         }`}
       >
         <Icon size={16} />
-        {label && <span className="text-sm">{label}</span>}
+        {label && <span className="text-sm whitespace-nowrap">{label}</span>}
       </button>
     </div>
   );

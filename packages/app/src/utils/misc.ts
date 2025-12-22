@@ -1,4 +1,5 @@
 import type { OsPlatform } from "@/types/system";
+import { useI18nStore } from "@/store/i18n-store";
 import { md5 } from "js-md5";
 
 export const uniqueId = () => Math.random().toString(36).substring(2, 9);
@@ -32,7 +33,8 @@ export const makeSafeFilename = (filename: string, replacement = "_") => {
 };
 
 export const getLocale = () => {
-  return localStorage?.getItem("i18nextLng") || navigator?.language || "";
+  const resolved = useI18nStore.getState().getResolvedLocale();
+  return resolved === "en" ? "en" : "zh-CN";
 };
 
 export const getUserLang = () => {
@@ -41,16 +43,13 @@ export const getUserLang = () => {
 };
 
 export const getTargetLang = () => {
-  const locale = getLocale();
-  if (locale.startsWith("zh")) {
-    return locale === "zh-Hant" || locale === "zh-HK" || locale === "zh-TW" ? "zh-Hant" : "zh-Hans";
-  }
-  return locale.split("-")[0] || "en";
+  const resolved = useI18nStore.getState().getResolvedLocale();
+  return resolved === "en" ? "English" : "中文";
 };
 
 export const isCJKEnv = () => {
   const browserLanguage = navigator.language || "";
-  const uiLanguage = localStorage?.getItem("i18nextLng") || "";
+  const uiLanguage = getLocale();
   const isCJKUI = ["zh", "ja", "ko"].some((lang) => uiLanguage.startsWith(lang));
   const isCJKLocale = ["zh", "ja", "ko"].some((lang) => browserLanguage.startsWith(lang));
   return isCJKLocale || isCJKUI;

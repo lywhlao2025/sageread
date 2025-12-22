@@ -8,6 +8,9 @@ interface UseNotepadProps {
   bookId?: string;
 }
 
+type NotesPage = { data: Note[]; nextCursor?: number };
+type NotesInfiniteData = { pages: NotesPage[]; pageParams: unknown[] };
+
 export const useNotepad = ({ bookId }: UseNotepadProps = {}) => {
   const queryClient = useQueryClient();
 
@@ -52,12 +55,8 @@ export const useNotepad = ({ bookId }: UseNotepadProps = {}) => {
         const newNote = await createNote(data);
         toast.success("笔记创建成功");
 
-        // 刷新笔记列表
-        if (data.bookId) {
-          queryClient.invalidateQueries({ queryKey: ["notes", data.bookId] });
-        } else {
-          queryClient.invalidateQueries({ queryKey: ["notes"] });
-        }
+        // 刷新笔记列表（使用前缀 key，覆盖所有 bookId 分片）
+        queryClient.invalidateQueries({ queryKey: ["notes"] });
 
         return newNote;
       } catch (error) {
@@ -76,8 +75,8 @@ export const useNotepad = ({ bookId }: UseNotepadProps = {}) => {
         const updatedNote = await updateNote(data);
         toast.success("笔记更新成功");
 
-        // 刷新笔记列表
-        queryClient.invalidateQueries({ queryKey: ["notes", bookId] });
+        // 刷新笔记列表（使用前缀 key，覆盖所有 bookId 分片）
+        queryClient.invalidateQueries({ queryKey: ["notes"] });
         queryClient.invalidateQueries({ queryKey: ["note", data.id] });
 
         return updatedNote;
@@ -97,8 +96,18 @@ export const useNotepad = ({ bookId }: UseNotepadProps = {}) => {
         await deleteNote(noteId);
         toast.success("笔记删除成功");
 
-        // 刷新笔记列表
-        queryClient.invalidateQueries({ queryKey: ["notes", bookId] });
+        // 立即从缓存中移除，避免“删除成功但列表不更新”（例如分页缓存未及时 refetch）
+        queryClient.setQueriesData<NotesInfiniteData>({ queryKey: ["notes"] }, (data) => {
+          if (!data?.pages?.length) return data;
+          const nextPages = data.pages.map((page) => ({
+            ...page,
+            data: page.data.filter((n) => n.id !== noteId),
+          }));
+          return { ...data, pages: nextPages };
+        });
+
+        // 刷新笔记列表（使用前缀 key，覆盖所有 bookId 分片）
+        queryClient.invalidateQueries({ queryKey: ["notes"] });
         queryClient.invalidateQueries({ queryKey: ["note", noteId] });
       } catch (error) {
         console.error("删除笔记失败:", error);

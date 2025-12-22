@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { useT } from "@/hooks/use-i18n";
 import { useThreads } from "@/hooks/use-threads";
 import type { ThreadSummary } from "@/types/thread";
 import { Menu } from "@tauri-apps/api/menu";
@@ -15,24 +16,28 @@ interface ChatThreadsProps {
 }
 
 export function ChatThreads({ bookId, onBack, onSelectThread }: ChatThreadsProps) {
+  const t = useT();
   const { threads, error, status, handleDeleteThread: deleteThreadFn } = useThreads({ bookId });
 
   const handleNativeDelete = useCallback(
     async (thread: ThreadSummary) => {
       try {
-        const confirmed = await ask(`确定要删除这个对话吗？\n\n"${thread.title || "未命名对话"}"\n\n此操作无法撤销。`, {
-          title: "确认删除",
+        const confirmed = await ask(
+          t("chat.deleteConfirm.body", undefined, { title: thread.title || t("chat.untitled", "未命名对话") }),
+          {
+            title: t("chat.deleteConfirm.title", "确认删除"),
           kind: "warning",
-        });
+          },
+        );
 
         if (confirmed) {
           await deleteThreadFn(thread.id);
         }
       } catch (error) {
-        console.error("删除对话失败:", error);
+        console.error("delete thread failed:", error);
       }
     },
-    [deleteThreadFn],
+    [deleteThreadFn, t],
   );
 
   const handleMenuClick = useCallback(
@@ -45,7 +50,7 @@ export function ChatThreads({ bookId, onBack, onSelectThread }: ChatThreadsProps
           items: [
             {
               id: "delete",
-              text: "删除",
+              text: t("chat.delete", "删除"),
               action: () => {
                 handleNativeDelete(thread);
               },
@@ -55,10 +60,10 @@ export function ChatThreads({ bookId, onBack, onSelectThread }: ChatThreadsProps
 
         await menu.popup(new LogicalPosition(menuEvent.clientX, menuEvent.clientY));
       } catch (error) {
-        console.error("显示菜单失败:", error);
+        console.error("show menu failed:", error);
       }
     },
-    [handleNativeDelete],
+    [handleNativeDelete, t],
   );
 
   if (status === "pending") {
@@ -73,10 +78,10 @@ export function ChatThreads({ bookId, onBack, onSelectThread }: ChatThreadsProps
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h2 className="font-medium text-neutral-900 dark:text-neutral-100">历史对话</h2>
+          <h2 className="font-medium text-neutral-900 dark:text-neutral-100">{t("chat.threads.title", "历史对话")}</h2>
         </div>
         <div className="flex flex-1 items-center justify-center">
-          <div className="text-neutral-600 dark:text-neutral-400">加载中...</div>
+          <div className="text-neutral-600 dark:text-neutral-400">{t("chat.loading", "加载中...")}</div>
         </div>
       </div>
     );
@@ -94,18 +99,20 @@ export function ChatThreads({ bookId, onBack, onSelectThread }: ChatThreadsProps
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h2 className="font-medium text-neutral-900 dark:text-neutral-100">历史对话</h2>
+          <h2 className="font-medium text-neutral-900 dark:text-neutral-100">{t("chat.threads.title", "历史对话")}</h2>
         </div>
         <div className="flex flex-1 items-center justify-center">
           <div className="text-center">
-            <div className="mb-2 text-neutral-600 dark:text-neutral-400">{error?.message || "加载历史对话失败"}</div>
+            <div className="mb-2 text-neutral-600 dark:text-neutral-400">
+              {error?.message || t("chat.loadFail", "加载历史对话失败")}
+            </div>
             <Button
               variant="outline"
               size="sm"
               onClick={() => window.location.reload()}
               className="border-neutral-200 dark:border-neutral-700"
             >
-              重试
+              {t("chat.retry", "重试")}
             </Button>
           </div>
         </div>
@@ -125,7 +132,7 @@ export function ChatThreads({ bookId, onBack, onSelectThread }: ChatThreadsProps
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h2 className="font-medium text-neutral-900 text-sm dark:text-neutral-100">历史对话</h2>
+          <h2 className="font-medium text-neutral-900 text-sm dark:text-neutral-100">{t("chat.threads.title", "历史对话")}</h2>
           <span className="text-neutral-500 text-xs dark:text-neutral-500">({threads.length})</span>
         </div>
       </div>
@@ -138,10 +145,12 @@ export function ChatThreads({ bookId, onBack, onSelectThread }: ChatThreadsProps
                 <MessageCircle size={24} className="text-neutral-500 dark:text-neutral-500" />
               </div>
               <p className="text-neutral-600 text-sm dark:text-neutral-400">
-                {bookId ? "还没有历史对话" : "暂无聊天记录"}
+                {bookId ? t("chat.noThreads.book", "还没有历史对话") : t("chat.noThreads.global", "暂无聊天记录")}
               </p>
               <p className="mt-1 text-neutral-500 text-xs dark:text-neutral-500">
-                {bookId ? "开始聊天来创建你的第一个对话" : "开始对话来创建聊天记录"}
+                {bookId
+                  ? t("chat.noThreads.hint.book", "开始聊天来创建你的第一个对话")
+                  : t("chat.noThreads.hint.global", "开始对话来创建聊天记录")}
               </p>
             </div>
           </div>
@@ -156,11 +165,13 @@ export function ChatThreads({ bookId, onBack, onSelectThread }: ChatThreadsProps
               >
                 <div className="mb-1 flex items-start justify-between gap-2">
                   <h3 className="line-clamp-1 flex-1 font-medium text-neutral-900 text-sm dark:text-neutral-100">
-                    {thread.title || "未命名对话"}
+                    {thread.title || t("chat.untitled", "未命名对话")}
                   </h3>
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-neutral-600 text-xs dark:text-neutral-400">{thread.message_count} 条消息</span>
+                  <span className="text-neutral-600 text-xs dark:text-neutral-400">
+                    {t("chat.messageCount", "{count} 条消息", { count: thread.message_count })}
+                  </span>
                   <span className="flex-shrink-0 text-neutral-500 text-xs dark:text-neutral-500">
                     {dayjs(thread.updated_at).format("YYYY-MM-DD HH:mm:ss")}
                   </span>

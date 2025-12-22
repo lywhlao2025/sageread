@@ -2,6 +2,7 @@ import { buildReadingPrompt } from "@/constants/prompt";
 import type { ChatContext } from "@/hooks/use-chat-state";
 import { useLlamaStore } from "@/store/llama-store";
 import { useProviderStore } from "@/store/provider-store";
+import { useI18nStore } from "@/store/i18n-store";
 import type { UIMessage } from "@ai-sdk/react";
 import {
   type ChatRequestOptions,
@@ -86,7 +87,11 @@ function shouldDisableToolsForCurrentModel(): boolean {
   const selected = state.selectedModel;
   if (!selected) return false;
   const provider = state.modelProviders.find((p) => p.provider === selected.providerId);
-  return isLikelyOllamaBaseUrl(provider?.baseUrl);
+  // Only apply this downgrade for known-problematic models on Ollama's OpenAI-compatible endpoint.
+  // Some Ollama models support tools well (e.g. gpt-oss), so we must not disable tools globally.
+  if (!isLikelyOllamaBaseUrl(provider?.baseUrl)) return false;
+  const modelId = (selected.modelId || "").toLowerCase();
+  return modelId.includes("deepseek") || modelId.includes("r1");
 }
 
 export class CustomChatTransport implements ChatTransport<UIMessage> {
@@ -183,7 +188,7 @@ export class CustomChatTransport implements ChatTransport<UIMessage> {
       abortSignal: options.abortSignal,
       ...(activeTools ? { toolChoice: "auto" as const, tools: activeTools } : {}),
       stopWhen: stepCountIs(20),
-      system: await buildReadingPrompt(chatContext),
+      system: await buildReadingPrompt(chatContext, useI18nStore.getState().getResolvedLocale()),
     });
 
     return result.toUIMessageStream({

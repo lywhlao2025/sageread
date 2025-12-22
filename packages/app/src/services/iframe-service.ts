@@ -3,6 +3,9 @@
  * 使用自定义事件在同一页面内传递选中的文本
  */
 
+import { t } from "@/i18n";
+import { useI18nStore } from "@/store/i18n-store";
+
 export interface ExplainTextEventDetail {
   selectedText: string; // 选中的文本（作为引用）
   question: string; // 对应的问题
@@ -41,7 +44,13 @@ class IframeService {
       return;
     }
 
-    const question = type === "explain" ? "请解释这段文字" : "这段内容有什么含义？";
+    // Localize quick-action prompts (explain/ask) so UI language matches user preference.
+    // These prompts will be sent to the model as the user's question.
+    const locale = useI18nStore.getState().getResolvedLocale();
+    const question =
+      type === "explain"
+        ? t(locale, "reader.explain", "请解释这段文字")
+        : t(locale, "reader.askMeaning", "这段内容有什么含义？");
 
     const eventDetail: ExplainTextEventDetail = {
       selectedText: selectedText.trim(),

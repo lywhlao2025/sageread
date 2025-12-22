@@ -6,10 +6,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useNotepad } from "./hooks";
 import { toast } from "sonner";
 
-// 极简白名单：只保留 ASCII 字母/数字/空格及基本标点，规避后端字符串拼接导致的 SQL 语法错误
-const sanitize = (text: string) =>
-  (text.match(/[A-Za-z0-9\s\.\,\!\?\-]/g)?.join("") || "").replace(/\s+/g, " ").trim();
-
 interface NoteDetailDialogProps {
   note: Note | null;
   open: boolean;
@@ -38,22 +34,23 @@ export function NoteDetailDialog({ note, open, onOpenChange }: NoteDetailDialogP
   }, [note]);
 
   const derivedTitle = useMemo(() => {
-    const combined = extra ? `${quote}\n\n${extra}` : quote;
-    return combined.length > 50 ? `${combined.slice(0, 50)}...` : combined || "无标题";
+    const combined = [quote.trim(), extra.trim()].filter(Boolean).join("\n\n");
+    if (!combined) return "无标题";
+    return combined.length > 50 ? `${combined.slice(0, 50)}...` : combined;
   }, [quote, extra]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const safeQuote = sanitize(quote);
-      const safeExtra = sanitize(extra);
-      const combined = [safeQuote, safeExtra].filter(Boolean).join("\n\n");
-      const safeTitle = sanitize(derivedTitle);
+      // 这里不做“只保留 ASCII”的清洗：笔记内容需要保留中文等 Unicode 字符，
+      // 且后端使用参数绑定（sqlx .bind），不会因为特殊字符导致 SQL 拼接错误。
+      const combined = [quote.trim(), extra.trim()].filter(Boolean).join("\n\n");
+      const title = derivedTitle.trim() || "无标题";
 
       await handleUpdateNote({
         id: note.id,
         content: combined,
-        title: safeTitle,
+        title,
       });
       onOpenChange(false);
     } catch (err) {

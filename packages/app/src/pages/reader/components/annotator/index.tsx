@@ -1,6 +1,7 @@
 import { HIGHLIGHT_COLOR_HEX } from "@/services/constants";
 import { useAppSettingsStore } from "@/store/app-settings-store";
 import type { BookNote } from "@/types/book";
+import { useT } from "@/hooks/use-i18n";
 import { Overlayer } from "foliate-js/overlayer.js";
 import { Languages, NotebookPen } from "lucide-react"; // 引入翻译按钮图标
 import type React from "react";
@@ -18,6 +19,7 @@ import AskAIPopup from "./ask-ai-popup";
 const Annotator: React.FC = () => {
   const { settings } = useAppSettingsStore();
   const store = useReaderStoreApi();
+  const t = useT();
 
   const bookId = useReaderStore((state) => state.bookId)!;
   const view = useReaderStore((state) => state.view);
@@ -123,10 +125,10 @@ const Annotator: React.FC = () => {
     setNoteExtra("");
   }, [selection?.key, selection?.text]);
   const buttons = [
-    { label: "复制", Icon: FiCopy, onClick: handleCopy },
-    { label: "解释", Icon: FiHelpCircle, onClick: handleExplain },
-    { label: "翻译", Icon: Languages, onClick: handleTranslate }, // 新增翻译按钮
-    { label: "询问AI", Icon: FiMessageCircle, onClick: handleAskAI },
+    { label: t("reader.action.copy"), Icon: FiCopy, onClick: handleCopy },
+    { label: t("reader.action.explain"), Icon: FiHelpCircle, onClick: handleExplain },
+    { label: t("reader.action.translate"), Icon: Languages, onClick: handleTranslate }, // 新增翻译按钮
+    { label: t("reader.action.askAI"), Icon: FiMessageCircle, onClick: handleAskAI },
     {
       label: undefined,
       Icon: selectionAnnotated ? RiDeleteBinLine : PiHighlighterFill,
@@ -180,14 +182,14 @@ const Annotator: React.FC = () => {
           }}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <div className="mb-2 text-xs text-neutral-500">引用</div>
+          <div className="mb-2 text-xs text-neutral-500">{t("reader.note.quote")}</div>
           <div className="line-clamp-3 rounded bg-neutral-50 p-2 text-sm text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
             {selection.text}
           </div>
-          <div className="mt-3 text-xs text-neutral-500">补充内容</div>
+          <div className="mt-3 text-xs text-neutral-500">{t("reader.note.addition")}</div>
           <textarea
             className="mt-1 h-20 w-full resize-none rounded border border-neutral-200 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
-            placeholder="输入你的想法，可留空"
+            placeholder={t("reader.note.placeholder")}
             value={noteExtra}
             onChange={(e) => setNoteExtra(e.target.value)}
           />
@@ -200,7 +202,7 @@ const Annotator: React.FC = () => {
                 setNoteExtra("");
               }}
             >
-              取消
+              {t("common.cancel")}
             </button>
             <button
               className="rounded-md bg-neutral-900 px-3 py-1 text-white hover:bg-neutral-800 dark:bg-primary-500 dark:hover:bg-primary-600 disabled:opacity-50"
@@ -212,7 +214,7 @@ const Annotator: React.FC = () => {
                 handleDismissPopup();
               }}
             >
-              确定
+              {t("common.confirm")}
             </button>
           </div>
         </div>
