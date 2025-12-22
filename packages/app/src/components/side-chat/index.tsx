@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useChatState } from "@/hooks/use-chat-state";
+import { useT } from "@/hooks/use-i18n";
 import { useReaderStore } from "@/pages/reader/components/reader-provider";
 import { useAppSettingsStore } from "@/store/app-settings-store";
 import { useThemeStore } from "@/store/theme-store";
@@ -29,6 +30,7 @@ interface ChatContentProps {
 }
 
 function ChatContent({ bookId }: ChatContentProps) {
+  const t = useT();
   const { toggleSettingsDialog } = useAppSettingsStore();
   const { autoScroll } = useThemeStore();
   const [toolDetail, setToolDetail] = useState<any>(null);
@@ -82,7 +84,7 @@ function ChatContent({ bookId }: ChatContentProps) {
     if (visibleText.length <= maxLen) return visibleText;
     const head = visibleText.slice(0, 3500);
     const tail = visibleText.slice(-2000);
-    return `${head}\n\n…（中间内容已省略）…\n\n${tail}`;
+    return `${head}\n\n${t("chat.quickAction.visibleText.ellipsis", "...(content omitted)...")}\n\n${tail}`;
   };
 
   const handleSubmitWithVisibleContent = async (promptOverride?: string) => {
@@ -90,7 +92,7 @@ function ChatContent({ bookId }: ChatContentProps) {
     if (!prompt) return;
 
     // Only "总结本页" uses the currently visible text as context.
-    if (promptOverride === "请帮我总结本页的核心要点和结论。") {
+    if (promptOverride === t("chat.quickAction.summary.prompt")) {
       const visibleText = getVisibleContentText();
       if (visibleText) {
         await handleSubmitWithReferences(prompt, [visibleText]);
@@ -107,12 +109,12 @@ function ChatContent({ bookId }: ChatContentProps) {
   };
 
   const promptSuggestions = [
-    { text: "总结这一页的内容", icon: ScrollText, isNew: true },
-    { text: "解释这个概念", icon: Lightbulb, isNew: false },
-    { text: "分析作者的观点", icon: UserSearch, isNew: false },
-    { text: "找出关键信息", icon: Search, isNew: true },
-    { text: "提出相关问题", icon: CircleQuestionMark, isNew: false },
-    { text: "生成学习笔记", icon: NotebookPen, isNew: true },
+    { text: t("chat.suggestion.summarize", "Summarize this page"), icon: ScrollText, isNew: true },
+    { text: t("chat.suggestion.explain", "Explain this concept"), icon: Lightbulb, isNew: false },
+    { text: t("chat.suggestion.analyze", "Analyze the author's viewpoint"), icon: UserSearch, isNew: false },
+    { text: t("chat.suggestion.keypoints", "Find key information"), icon: Search, isNew: true },
+    { text: t("chat.suggestion.questions", "Ask related questions"), icon: CircleQuestionMark, isNew: false },
+    { text: t("chat.suggestion.notes", "Create study notes"), icon: NotebookPen, isNew: true },
   ] as const;
 
   const EmptyState = () => (
@@ -123,9 +125,14 @@ function ChatContent({ bookId }: ChatContentProps) {
             <img className="size-8" src="https://www.notion.so/_assets/9ade71d75a1c0e93.png" alt="" />
           </div>
           <div className="space-y-2">
-            <h3 className="font-semibold text-neutral-900 text-xl dark:text-neutral-50">AI 阅读助手</h3>
+            <h3 className="font-semibold text-neutral-900 text-xl dark:text-neutral-50">
+              {t("chat.empty.title", "AI Reading Assistant")}
+            </h3>
             <p className="max-w-md text-sm dark:text-neutral-400">
-              智能分析文本内容，提供深度理解和个性化解答，帮助你快速掌握书籍要点。你可以：
+              {t(
+                "chat.empty.desc",
+                "Analyze text to deliver deeper understanding and tailored answers, so you can grasp key ideas faster. You can:",
+              )}
             </p>
           </div>
         </div>

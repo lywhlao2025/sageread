@@ -1,5 +1,6 @@
 import { PromptInput, PromptInputAction, PromptInputTextarea } from "@/components/prompt-kit/prompt-input";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/hooks/use-i18n";
 import { useIsChatPage } from "@/hooks/use-is-chat-page";
 import type { ChatReference } from "@/types/message";
 import { ArrowUp, BookOpen, Brain, Notebook, Paperclip, Quote, X } from "lucide-react";
@@ -20,12 +21,6 @@ interface ChatInputAreaProps {
   setActiveBookId: (bookId: string | undefined) => void;
 }
 
-const quickActions = [
-  { label: "总结本页", icon: BookOpen, prompt: "请帮我总结本页的核心要点和结论。" },
-  { label: "分析观点", icon: Brain, prompt: "请分析作者的观点，指出论据与可能的偏见。" },
-  { label: "生成思维导图", icon: Notebook, prompt: "请基于当前内容生成思维导图。" },
-] as const;
-
 export function ChatInputArea({
   input,
   status,
@@ -39,8 +34,14 @@ export function ChatInputArea({
   onStop,
   setInput,
 }: ChatInputAreaProps) {
+  const t = useT();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isChatPage = useIsChatPage();
+  const quickActions = [
+    { label: t("chat.quickAction.summary", "Summarize page"), icon: BookOpen, prompt: t("chat.quickAction.summary.prompt") },
+    { label: t("chat.quickAction.analyze", "Analyze viewpoint"), icon: Brain, prompt: t("chat.quickAction.analyze.prompt") },
+    { label: t("chat.quickAction.mindmap", "Generate mind map"), icon: Notebook, prompt: t("chat.quickAction.mindmap.prompt") },
+  ] as const;
   const handleQuickPrompt = (prompt: string) => {
     setInput(prompt);
     if (status === "ready") {
@@ -125,12 +126,12 @@ export function ChatInputArea({
             </div>
           )}
           <PromptInputTextarea
-            placeholder="问我任何问题..."
+            placeholder={t("chat.placeholder.askAnything", "Ask me anything...")}
             className="flex-1 py-2 pl-2 text-sm leading-[1.3] placeholder:font-light dark:bg-neutral-800 dark:text-neutral-100 dark:placeholder:text-neutral-400"
           />
           <div className="flex items-center justify-between gap-2">
             <input ref={fileInputRef} type="file" multiple className="hidden" />
-            <PromptInputAction tooltip="上传文件">
+            <PromptInputAction tooltip={t("chat.tooltip.uploadFile", "Upload file")}>
               <Button
                 variant="outline"
                 size="icon"
