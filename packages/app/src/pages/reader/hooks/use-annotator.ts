@@ -12,6 +12,7 @@ import * as CFI from "foliate-js/epubcfi.js";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useReaderStore, useReaderStoreApi } from "../components/reader-provider";
+import { useSelectionTranslate } from "./use-selection-translate";
 
 function getContextByRange(range: Range, win = 30) {
   const container = range.commonAncestorContainer;
@@ -56,9 +57,11 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
   const [selection, setSelection] = useState<TextSelection | null>(null);
   const [showAnnotPopup, setShowAnnotPopup] = useState(false);
   const [showAskAIPopup, setShowAskAIPopup] = useState(false);
+  const [showTranslatePopup, setShowTranslatePopup] = useState(false);
   const [trianglePosition, setTrianglePosition] = useState<Position>();
   const [annotPopupPosition, setAnnotPopupPosition] = useState<Position>();
   const [askAIPopupPosition, setAskAIPopupPosition] = useState<Position>();
+  const [translatePopupPosition, setTranslatePopupPosition] = useState<Position>();
   const [highlightOptionsVisible, setHighlightOptionsVisible] = useState(false);
 
   const [selectedStyle, setSelectedStyle] = useState<HighlightStyle>(settings.globalReadSettings.highlightStyle);
@@ -69,13 +72,26 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
   const popupPadding = 10;
   const annotPopupWidth = Math.min(globalViewSettings?.vertical ? 320 : 390, window.innerWidth - 2 * popupPadding);
   const annotPopupHeight = 36;
+  const translatePopupWidth = Math.min(360, window.innerWidth - 2 * popupPadding);
+  const translatePopupHeight = 220;
+
+  const {
+    content: translateContent,
+    status: translateStatus,
+    error: translateError,
+    translate,
+    reset: resetTranslate,
+  } = useSelectionTranslate(bookId);
 
   // Popup 相关函数
   const handleDismissPopup = useCallback(() => {
     setSelection(null);
     setShowAnnotPopup(false);
     setShowAskAIPopup(false);
-  }, []);
+    setShowTranslatePopup(false);
+    setTranslatePopupPosition(undefined);
+    resetTranslate();
+  }, [resetTranslate]);
 
   const handleDismissPopupAndSelection = useCallback(() => {
     handleDismissPopup();
@@ -237,9 +253,47 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
       "reader.translateDirectives",
       "Answer the question directly.\nDo not include analysis, reasoning, thoughts, or explanations.\nOnly output the final result.",
     )}`; // 构造翻译提问
-    iframeService.sendAskAIRequest(selection.text, question, bookId); // 复用 AI 询问入口发送请求
-    handleDismissPopupAndSelection(); // 发送后关闭弹窗并清理选区
-  }, [selection, settings.globalReadSettings.translateTargetLang, bookId, handleDismissPopupAndSelection, locale, t]);
+
+    const gridFrame = document.querySelector(`#gridcell-${bookId}`);
+    if (!gridFrame) return;
+    const rect = gridFrame.getBoundingClientRect();
+    const triangPos = getPosition(selection.range, rect, popupPadding, globalViewSettings?.vertical);
+    const translatePopupAnchor = globalViewSettings?.vertical
+      ? triangPos
+      : ({
+          point: {
+            x: triangPos.point.x,
+            y: triangPos.point.y + 12,
+          },
+          dir: "up",
+        } as Position);
+    const translatePopupPos = getPopupPosition(
+      translatePopupAnchor,
+      rect,
+      globalViewSettings?.vertical ? translatePopupHeight : translatePopupWidth,
+      globalViewSettings?.vertical ? translatePopupWidth : 0,
+      popupPadding,
+    );
+
+    if (triangPos.point.x === 0 || triangPos.point.y === 0) return;
+
+    setShowAnnotPopup(false);
+    setShowAskAIPopup(false);
+    setTranslatePopupPosition(translatePopupPos);
+    setShowTranslatePopup(true);
+    translate(selection.text, question);
+  }, [
+    selection,
+    settings.globalReadSettings.translateTargetLang,
+    bookId,
+    locale,
+    t,
+    globalViewSettings?.vertical,
+    translate,
+    popupPadding,
+    translatePopupHeight,
+    translatePopupWidth,
+  ]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   const handleAskAI = useCallback(() => {
@@ -278,6 +332,13 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
     view?.deselect();
   }, [view]);
 
+  const handleCloseTranslate = useCallback(() => {
+    setShowTranslatePopup(false);
+    setTranslatePopupPosition(undefined);
+    resetTranslate();
+    view?.deselect();
+  }, [resetTranslate, view]);
+
   const handleSendAIQuery = useCallback(
     (query: string, selectedText: string) => {
       iframeService.sendAskAIRequest(selectedText, query, bookId);
@@ -290,7 +351,7 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
     setHighlightOptionsVisible(!!selection?.annotated);
-    if (selection && selection.text.trim().length > 0 && !showAskAIPopup) {
+    if (selection && selection.text.trim().length > 0 && !showAskAIPopup && !showTranslatePopup) {
       const gridFrame = document.querySelector(`#gridcell-${bookId}`);
 
       if (!gridFrame) {
@@ -316,7 +377,7 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
       setShowAnnotPopup(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selection, bookId, showAskAIPopup]);
+  }, [selection, bookId, showAskAIPopup, showTranslatePopup]);
 
   // 加载当前页面的标注
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
@@ -348,9 +409,11 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
     setSelection,
     showAnnotPopup,
     showAskAIPopup,
+    showTranslatePopup,
     trianglePosition,
     annotPopupPosition,
     askAIPopupPosition,
+    translatePopupPosition,
     highlightOptionsVisible,
     selectedStyle,
     setSelectedStyle,
@@ -358,6 +421,7 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
     setSelectedColor,
     annotPopupWidth,
     annotPopupHeight,
+    translatePopupWidth,
 
     // 函数
     handleDismissPopup,
@@ -369,6 +433,10 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
     handleTranslate, // 暴露翻译按钮对应的处理函数
     handleAskAI,
     handleCloseAskAI,
+    handleCloseTranslate,
     handleSendAIQuery,
+    translateContent,
+    translateStatus,
+    translateError,
   };
 };

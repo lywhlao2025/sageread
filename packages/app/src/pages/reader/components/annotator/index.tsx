@@ -5,7 +5,7 @@ import { useT } from "@/hooks/use-i18n";
 import { Overlayer } from "foliate-js/overlayer.js";
 import { Languages, NotebookPen } from "lucide-react"; // 引入翻译按钮图标
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FiCopy, FiHelpCircle, FiMessageCircle } from "react-icons/fi";
 import { PiHighlighterFill } from "react-icons/pi";
 import { RiDeleteBinLine } from "react-icons/ri";
@@ -31,9 +31,11 @@ const Annotator: React.FC = () => {
     setSelection,
     showAnnotPopup,
     showAskAIPopup,
+    showTranslatePopup,
     trianglePosition,
     annotPopupPosition,
     askAIPopupPosition,
+    translatePopupPosition,
     highlightOptionsVisible,
     selectedStyle,
     setSelectedStyle,
@@ -41,6 +43,7 @@ const Annotator: React.FC = () => {
     setSelectedColor,
     annotPopupWidth,
     annotPopupHeight,
+    translatePopupWidth,
     handleDismissPopup,
     handleCopy,
     handleHighlight,
@@ -49,7 +52,11 @@ const Annotator: React.FC = () => {
     handleTranslate, // 使用 hook 提供的翻译处理函数
     handleAskAI,
     handleCloseAskAI,
+    handleCloseTranslate,
     handleSendAIQuery,
+    translateContent,
+    translateStatus,
+    translateError,
   } = useAnnotator({ bookId });
 
   const { handleScroll, handleMouseUp, handleShowPopup } = useTextSelector(bookId, setSelection, handleDismissPopup);
@@ -111,8 +118,26 @@ const Annotator: React.FC = () => {
   // 同步 popup 显示状态到 text selector
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
-    handleShowPopup(showAnnotPopup || showAskAIPopup);
-  }, [showAnnotPopup, showAskAIPopup]);
+    handleShowPopup(showAnnotPopup || showAskAIPopup || showTranslatePopup);
+  }, [showAnnotPopup, showAskAIPopup, showTranslatePopup]);
+
+  const translatePopupRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showTranslatePopup) return;
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (translatePopupRef.current && target && translatePopupRef.current.contains(target)) {
+        return;
+      }
+      handleCloseTranslate();
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [showTranslatePopup, handleCloseTranslate]);
 
   const selectionAnnotated = selection?.annotated;
   // 笔记弹窗状态（补充内容 + 显示）
@@ -171,6 +196,27 @@ const Annotator: React.FC = () => {
           onClose={handleCloseAskAI}
           onSendQuery={handleSendAIQuery}
         />
+      )}
+
+      {showTranslatePopup && translatePopupPosition && (
+        <div
+          ref={translatePopupRef}
+          className="pointer-events-auto absolute z-50 w-[360px] max-w-[80vw] rounded-lg border border-neutral-200 bg-white p-3 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+          style={{
+            left: `${translatePopupPosition.point.x}px`,
+            top: `${translatePopupPosition.point.y}px`,
+            width: `${translatePopupWidth}px`,
+            transform: "translate(-50%, calc(-100% - 4px))",
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <div className="text-xs text-neutral-500">{t("reader.action.translate")}</div>
+          <div className="mt-2 max-h-[50vh] whitespace-pre-wrap text-sm text-neutral-800 dark:text-neutral-100">
+            {translateContent ||
+              (translateStatus === "streaming" || translateStatus === "submitted" ? t("chat.loading") : null) ||
+              (translateError ? "Translation failed." : "")}
+          </div>
+        </div>
       )}
 
       {noteDialogOpen && selection && annotPopupPosition && (

@@ -3,6 +3,9 @@ import { createBookNote, deleteBookNote } from "@/services/book-note-service";
 import { iframeService } from "@/services/iframe-service";
 import { useLocale, useT } from "@/hooks/use-i18n";
 import { useReaderStore } from "@/pages/reader/components/reader-provider";
+import { useSelectionTranslate } from "@/pages/reader/hooks/use-selection-translate";
+import { useAppSettingsStore } from "@/store/app-settings-store";
+import { getTargetLang } from "@/utils/misc";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FiCopy, FiHelpCircle, FiMessageCircle } from "react-icons/fi";
 import { MdTranslate } from "react-icons/md";
@@ -31,11 +34,14 @@ GlobalWorkerOptions.workerSrc = workerSrc as string;
 const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
   const t = useT();
   const locale = useLocale();
+  const { settings } = useAppSettingsStore();
   const { handleCreateNote } = useNotepad();
   const bookData = useReaderStore((state) => state.bookData);
   const queryClient = useQueryClient();
   const [selectedText, setSelectedText] = useState<string>("");
   const [popupPos, setPopupPos] = useState<PopupPosition | null>(null);
+  const [showTranslatePopup, setShowTranslatePopup] = useState(false);
+  const [translatePopupPos, setTranslatePopupPos] = useState<PopupPosition | null>(null);
   const [showAskAIPopup, setShowAskAIPopup] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [highlights, setHighlights] = useState<
@@ -52,6 +58,15 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
   const eventBusRef = useRef<EventBus | null>(null);
+  const translatePopupRef = useRef<HTMLDivElement>(null);
+
+  const {
+    content: translateContent,
+    status: translateStatus,
+    error: translateError,
+    translate,
+    reset: resetTranslate,
+  } = useSelectionTranslate(bookId);
 
   const title = useMemo(() => file.name || `pdf-${bookId}`, [file.name, bookId]);
 
@@ -115,13 +130,24 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
       if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
         setPopupPos(null);
         setSelectedText("");
+        setShowTranslatePopup(false);
+        setTranslatePopupPos(null);
+        resetTranslate();
         return;
       }
       const text = sel.toString().trim();
       if (!text) {
         setPopupPos(null);
         setSelectedText("");
+        setShowTranslatePopup(false);
+        setTranslatePopupPos(null);
+        resetTranslate();
         return;
+      }
+      if (showTranslatePopup) {
+        setShowTranslatePopup(false);
+        setTranslatePopupPos(null);
+        resetTranslate();
       }
       const range = sel.getRangeAt(0);
       const rects = Array.from(range.getClientRects());
@@ -147,6 +173,9 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
     const handleClickOutside = () => {
       setPopupPos(null);
       setShowAskAIPopup(false);
+      setShowTranslatePopup(false);
+      setTranslatePopupPos(null);
+      resetTranslate();
     };
 
     document.addEventListener("selectionchange", handleSelection);
@@ -155,7 +184,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
       document.removeEventListener("selectionchange", handleSelection);
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [showAskAIPopup]);
+  }, [showAskAIPopup, showTranslatePopup, resetTranslate]);
 
   // 切换选区时关闭笔记弹窗，避免自动弹出
   useEffect(() => {
@@ -232,13 +261,30 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
 
   const handleTranslate = () => {
     if (!selectedText) return;
-    const targetLang = locale === "en" ? "English" : "中文";
+    const configuredLang = settings.globalReadSettings.translateTargetLang?.trim();
+    const normalized = (configuredLang || "").trim();
+    const normalizedLower = normalized.toLowerCase();
+    const targetLang =
+      !normalized
+        ? getTargetLang()
+        : normalized === "EN" || normalizedLower === "en" || normalizedLower === "english"
+          ? locale === "en"
+            ? "English"
+            : "中文"
+          : normalizedLower.startsWith("zh")
+            ? "中文"
+            : normalized;
     const prompt = `${t("reader.translateTextPrompt", undefined, { lang: targetLang, text: selectedText })}\n\n${t(
       "reader.translateDirectives",
       "Answer the question directly.\nDo not include analysis, reasoning, thoughts, or explanations.\nOnly output the final result.",
     )}`;
-    iframeService.sendAskAIRequest(selectedText, prompt, bookId);
+    if (popupPos) {
+      setTranslatePopupPos({ x: popupPos.x, y: popupPos.y + 8 });
+    }
+    setShowTranslatePopup(true);
+    translate(selectedText, prompt);
     setPopupPos(null);
+    setShowAskAIPopup(false);
   };
 
   const handleSendAIQuery = (query: string, text: string) => {
@@ -379,6 +425,26 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
             onClose={() => setShowAskAIPopup(false)}
             onSendQuery={(query) => handleSendAIQuery(query, selectedText)}
           />
+        </div>
+      )}
+
+      {showTranslatePopup && translatePopupPos && (
+        <div
+          ref={translatePopupRef}
+          className="pointer-events-auto absolute z-50 w-[360px] max-w-[80vw] rounded-lg border border-neutral-200 bg-white p-3 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+          style={{
+            left: translatePopupPos.x,
+            top: translatePopupPos.y,
+            transform: "translate(-50%, calc(-100% - 4px))",
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <div className="text-xs text-neutral-500">{t("reader.action.translate")}</div>
+          <div className="mt-2 max-h-[50vh] whitespace-pre-wrap text-sm text-neutral-800 dark:text-neutral-100">
+            {translateContent ||
+              (translateStatus === "streaming" || translateStatus === "submitted" ? t("chat.loading") : null) ||
+              (translateError ? "Translation failed." : "")}
+          </div>
         </div>
       )}
 
