@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
 
 jobs:
@@ -14,12 +14,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: 'macos-latest'
-            args: '--target aarch64-apple-darwin'
-          - platform: 'macos-latest'
-            args: '--target x86_64-apple-darwin'
-          - platform: 'windows-latest'
-            args: ''
+          - platform: "macos-latest"
+            args: "--target aarch64-apple-darwin"
+          - platform: "macos-latest"
+            args: "--target x86_64-apple-darwin"
+          - platform: "windows-latest"
+            args: ""
     runs-on: ${{ matrix.platform }}
 
     steps:
@@ -34,7 +34,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -44,14 +44,14 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: './packages/app/src-tauri -> target'
+          workspaces: "./packages/app/src-tauri -> target"
 
       - name: Install frontend dependencies
         run: pnpm install
 
       - name: Sync version
         run: |
-          node -e "const fs=require('fs');const tag='${{ github.ref_name }}';let version=tag.replace(/^v/,'');if(/^\\d+$/.test(version))version=`${version}.0.0`;if(/^\\d+\\.\\d+$/.test(version))version=`${version}.0`;const isSemver=/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z-.]+)?(?:\\+[0-9A-Za-z-.]+)?$/.test(version);if(!isSemver){throw new Error(`Invalid release tag version: ${tag}. Use vX.Y.Z`);}const path='packages/app/src-tauri/tauri.conf.json';const data=JSON.parse(fs.readFileSync(path));data.version=version;fs.writeFileSync(path,JSON.stringify(data,null,2));"
+          node -e "const fs=require('fs');const path='packages/app/src-tauri/tauri.conf.json';const data=JSON.parse(fs.readFileSync(path));data.version='${{ github.ref_name }}'.replace(/^v/,'');fs.writeFileSync(path,JSON.stringify(data,null,2));"
 
       - name: Build and Release
         uses: tauri-apps/tauri-action@v0
@@ -59,10 +59,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
           TAURI_SKIP_SIDECAR_SIGNATURE_CHECK: true
         with:
-          projectPath: './packages/app'
+          projectPath: "./packages/app"
           tagName: ${{ github.ref_name }}
-          releaseName: 'SageRead X ${{ github.ref_name }}'
-          releaseBody: 'See the assets to download and install this version.'
+          releaseName: "SageRead X ${{ github.ref_name }}"
+          releaseBody: "See the assets to download and install this version."
           releaseDraft: true
           prerelease: false
           includeUpdaterJson: true
