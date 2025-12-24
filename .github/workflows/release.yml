@@ -51,7 +51,7 @@ jobs:
 
       - name: Sync version
         run: |
-          node -e "const fs=require('fs');const path='packages/app/src-tauri/tauri.conf.json';const data=JSON.parse(fs.readFileSync(path));data.version='${{ github.ref_name }}'.replace(/^v/,'');fs.writeFileSync(path,JSON.stringify(data,null,2));"
+          node -e "const fs=require('fs');const tag='${{ github.ref_name }}';let version=tag.replace(/^v/,'');if(/^\\d+$/.test(version))version=`${version}.0.0`;if(/^\\d+\\.\\d+$/.test(version))version=`${version}.0`;const isSemver=/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z-.]+)?(?:\\+[0-9A-Za-z-.]+)?$/.test(version);if(!isSemver){throw new Error(`Invalid release tag version: ${tag}. Use vX.Y.Z`);}const path='packages/app/src-tauri/tauri.conf.json';const data=JSON.parse(fs.readFileSync(path));data.version=version;fs.writeFileSync(path,JSON.stringify(data,null,2));"
 
       - name: Build and Release
         uses: tauri-apps/tauri-action@v0
