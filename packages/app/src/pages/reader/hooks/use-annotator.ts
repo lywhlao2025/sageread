@@ -422,6 +422,7 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
     annotPopupWidth,
     annotPopupHeight,
     translatePopupWidth,
+    translatePopupHeight,
 
     // 函数
     handleDismissPopup,

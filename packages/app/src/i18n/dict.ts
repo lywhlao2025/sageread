@@ -141,10 +141,10 @@ export const I18N_DICT: I18nDict = {
   "reader.note.addition": { zh: "补充内容", en: "Your notes" },
   "reader.note.placeholder": { zh: "输入你的想法，可留空", en: "Write your thoughts (optional)" },
   "reader.askAI.placeholder": { zh: "询问AI任何问题", en: "Ask AI anything" },
-  "reader.translateQuoted": { zh: "请将引用内容翻译成{lang}。", en: "Translate the quoted text into {lang}." },
+  "reader.translateQuoted": { zh: "请将下面的内容翻译成{lang}，尽量逐句翻译，保留人名、地名和专有名词的原文，不要解释也不要总结，直接给出译文：\n\n{text}", en: "Translate the text below into {lang}. Prefer sentence-by-sentence translation. Preserve proper nouns (names, places, terms). Do not explain or summarize. Output only the translation:\n\n{text}" },
   "reader.translateDirectives": {
-    zh: "Answer the question directly.\nDo not include analysis, reasoning, thoughts, or explanations.\nOnly output the final result.",
-    en: "Answer the question directly.\nDo not include analysis, reasoning, thoughts, or explanations.\nOnly output the final result.",
+    zh: "请直接给出译文，不要重复句子，不要输出原文，不要解释或总结，不要额外说明。只输出译文。",
+    en: "Only output the translation. Do not repeat sentences, do not include the source text, and do not explain or summarize.",
   },
   "reader.translateTextPrompt": {
     zh: "请将下面的内容翻译成{lang}，尽量逐句翻译，保留人名、地名和专有名词的原文，不要解释也不要总结，直接给出译文：\n\n{text}",

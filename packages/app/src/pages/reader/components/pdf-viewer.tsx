@@ -435,12 +435,14 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
           style={{
             left: translatePopupPos.x,
             top: translatePopupPos.y,
-            transform: "translate(-50%, calc(-100% - 4px))",
+            transform:
+              translatePopupPos.y - 220 - 4 < 0 ? "translate(-50%, 4px)" : "translate(-50%, calc(-100% - 4px))",
+            height: "220px",
           }}
           onMouseDown={(e) => e.stopPropagation()}
         >
           <div className="text-xs text-neutral-500">{t("reader.action.translate")}</div>
-          <div className="mt-2 max-h-[50vh] whitespace-pre-wrap text-sm text-neutral-800 dark:text-neutral-100">
+          <div className="mt-2 max-h-[188px] overflow-y-auto whitespace-pre-wrap text-sm text-neutral-800 dark:text-neutral-100">
             {translateContent ||
               (translateStatus === "streaming" || translateStatus === "submitted" ? t("chat.loading") : null) ||
               (translateError ? "Translation failed." : "")}

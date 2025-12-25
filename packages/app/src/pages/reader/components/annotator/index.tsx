@@ -44,6 +44,7 @@ const Annotator: React.FC = () => {
     annotPopupWidth,
     annotPopupHeight,
     translatePopupWidth,
+    translatePopupHeight,
     handleDismissPopup,
     handleCopy,
     handleHighlight,
@@ -206,12 +207,19 @@ const Annotator: React.FC = () => {
             left: `${translatePopupPosition.point.x}px`,
             top: `${translatePopupPosition.point.y}px`,
             width: `${translatePopupWidth}px`,
-            transform: "translate(-50%, calc(-100% - 4px))",
+            height: `${translatePopupHeight}px`,
+            transform:
+              translatePopupPosition.point.y - translatePopupHeight - 4 < 0
+                ? "translate(-50%, 4px)"
+                : "translate(-50%, calc(-100% - 4px))",
           }}
           onMouseDown={(e) => e.stopPropagation()}
         >
           <div className="text-xs text-neutral-500">{t("reader.action.translate")}</div>
-          <div className="mt-2 max-h-[50vh] whitespace-pre-wrap text-sm text-neutral-800 dark:text-neutral-100">
+          <div
+            className="mt-2 overflow-y-auto whitespace-pre-wrap text-sm text-neutral-800 dark:text-neutral-100"
+            style={{ maxHeight: translatePopupHeight - 32 }}
+          >
             {translateContent ||
               (translateStatus === "streaming" || translateStatus === "submitted" ? t("chat.loading") : null) ||
               (translateError ? "Translation failed." : "")}

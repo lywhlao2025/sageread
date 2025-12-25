@@ -1,7 +1,7 @@
 import { useChat } from "@/ai/hooks/use-chat";
 import { useModelSelector } from "@/hooks/use-model-selector";
 import type { UIMessage } from "ai";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 
 function stripThinkBlocks(text: string): string {
   return text.replace(/<think>[\s\S]*?<\/think>\s*/gi, "").trim();
@@ -20,6 +20,47 @@ function getLatestAssistantText(messages: UIMessage[]): string {
   return "";
 }
 
+function normalizeText(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function stripSelectionEcho(text: string, original: string): string {
+  if (!original) return text;
+  const normalizedOriginal = normalizeText(original);
+  if (!normalizedOriginal) return text;
+
+  const lines = text.split("\n");
+  const filteredLines = lines.filter((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return true;
+    if (trimmed.startsWith(">")) return false;
+
+    const normalizedLine = normalizeText(trimmed);
+    if (normalizedLine.length >= 12 && normalizedOriginal.includes(normalizedLine)) {
+      return false;
+    }
+    return true;
+  });
+
+  let result = filteredLines.join("\n");
+  if (normalizedOriginal.length >= 12) {
+    result = result.replace(original, "");
+  }
+
+  const normalizedBlocks = new Set<string>();
+  const blocks = result.split(/\n{2,}/).filter((block) => block.trim());
+  const dedupedBlocks: string[] = [];
+  for (const block of blocks) {
+    const normalizedBlock = normalizeText(block);
+    if (!normalizedBlock) continue;
+    if (normalizedBlocks.has(normalizedBlock)) continue;
+    normalizedBlocks.add(normalizedBlock);
+    dedupedBlocks.push(block.trim());
+  }
+
+  return dedupedBlocks.join("\n\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 export function useSelectionTranslate(bookId?: string) {
   const { currentModelInstance } = useModelSelector("deepseek", "deepseek-chat");
   const { messages, status, error, sendMessage, setMessages, stop } = useChat(currentModelInstance || "deepseek-chat", {
@@ -28,10 +69,12 @@ export function useSelectionTranslate(bookId?: string) {
       activeBookId: bookId,
     },
   });
+  const selectionRef = useRef("");
 
   const translate = useCallback(
     (selectedText: string, question: string) => {
       if (!selectedText || !question) return;
+      selectionRef.current = selectedText;
       stop();
       setMessages([]);
       sendMessage({
@@ -49,7 +92,11 @@ export function useSelectionTranslate(bookId?: string) {
     setMessages([]);
   }, [setMessages, stop]);
 
-  const content = useMemo(() => stripThinkBlocks(getLatestAssistantText(messages)), [messages]);
+  const content = useMemo(() => {
+    const raw = stripThinkBlocks(getLatestAssistantText(messages));
+    const filtered = stripSelectionEcho(raw, selectionRef.current);
+    return filtered || raw;
+  }, [messages]);
 
   return {
     content,
