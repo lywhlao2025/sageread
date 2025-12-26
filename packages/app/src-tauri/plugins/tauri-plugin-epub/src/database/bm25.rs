@@ -85,13 +85,18 @@ impl<'a> BM25Search<'a> {
 
         // 重新计算统计信息
         let mut stmt = self.db.connection().prepare(
-            "SELECT COUNT(*) as total_docs, AVG(LENGTH(chunk_text)) as avg_length FROM document_chunks"
+            "SELECT COUNT(*) as total_docs, COALESCE(AVG(LENGTH(chunk_text)), 0) as avg_length FROM document_chunks"
         )?;
 
         let stats = stmt.query_row([], |row| {
+            let total_docs = row.get::<_, i64>(0)? as usize;
+            let mut avg_doc_length = row.get::<_, f64>(1)? as f32;
+            if total_docs == 0 || avg_doc_length == 0.0 {
+                avg_doc_length = 1.0;
+            }
             Ok(BM25Stats {
-                total_docs: row.get::<_, i64>(0)? as usize,
-                avg_doc_length: row.get::<_, f64>(1)? as f32,
+                total_docs,
+                avg_doc_length,
             })
         })?;
 
