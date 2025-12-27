@@ -34,10 +34,8 @@ SageRead X 是一款电子书阅读器，主要特点是可以在阅读时随时
 | 2025.12.22| 支持英语| ✅ | 
 | 2025.12.24| 优化翻译交互| ✅ |
 
-## 🚀支持一下
-业余时间更新，您的支持是我们持续迭代的动力📊 
-
+## 🚀进一步交流
+加入群聊,期待获取更多的意见和建议📊 
 **WeChat**  
-<img src="assets/pay/wechat.JPG" alt="WeChat Pay" width="140" />
-
+<img src="assets/community/qunliao.JPG" alt="community" width="140" />
 
