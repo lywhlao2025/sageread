@@ -249,7 +249,10 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
           : normalizedLower.startsWith("zh")
             ? "中文"
             : normalized;
-    const question = `${t("reader.translateQuoted", "请将引用内容翻译成{lang}。", { lang: targetLang })}\n\n${t(
+    const question = `${t("reader.translateQuoted", "请将引用内容翻译成{lang}。", {
+      lang: targetLang,
+      text: selection.text,
+    })}\n\n${t(
       "reader.translateDirectives",
       "Answer the question directly.\nDo not include analysis, reasoning, thoughts, or explanations.\nOnly output the final result.",
     )}`; // 构造翻译提问
