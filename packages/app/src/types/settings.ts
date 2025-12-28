@@ -22,6 +22,7 @@ export interface ReadSettings {
 export interface SystemSettings {
   version: number;
   localBooksDir: string;
+  suppressEmbeddingDownloadPrompt?: boolean;
 
   keepLogin: boolean;
   autoUpload: boolean;

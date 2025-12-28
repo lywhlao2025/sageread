@@ -10,7 +10,12 @@ import { eventDispatcher } from "@/utils/event";
 
 const EXTRA_ACCEPT_SUFFIXES = [".epub.zip"] as const;
 
-export function useBookUpload() {
+interface UseBookUploadOptions {
+  onBooksImported?: (books: { id: string }[]) => void;
+}
+
+export function useBookUpload(options: UseBookUploadOptions = {}) {
+  const { onBooksImported } = options;
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const { refreshBooks } = useLibraryStore();
@@ -100,10 +105,12 @@ export function useBookUpload() {
 
       if (successBooks.length > 0) {
         toast.success(`成功导入 ${successBooks.length} 本书籍`);
+        onBooksImported?.(successBooks);
+        void eventDispatcher.dispatch("books-imported", { books: successBooks });
         await refreshBooks();
       }
     },
-    [refreshBooks],
+    [refreshBooks, onBooksImported],
   );
 
   const selectFiles = useCallback((): Promise<FileList | null> => {

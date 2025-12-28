@@ -27,14 +27,12 @@ export default function NewLibraryPage() {
   const { searchQuery, booksWithStatus, isLoading, refreshBooks } = useLibraryStore();
   const { isSettingsDialogOpen, toggleSettingsDialog } = useAppSettingsStore();
   const insets = useSafeAreaInsets();
-  const { isDragOver, isUploading, handleDragOver, handleDragLeave, handleDrop, triggerFileSelect } = useBookUpload();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const isInitiating = useRef(false);
   const [libraryLoaded, setLibraryLoaded] = useState(false);
   const [selectedTagsForDelete, setSelectedTagsForDelete] = useState<string[]>([]);
-
   // 从URL获取选中的标签
   const selectedTagFromUrl = searchParams.get("tag") || "all";
   const { tags, filteredBooksByTag } = useTagsManagement(booksWithStatus, selectedTagFromUrl);
@@ -44,6 +42,9 @@ export default function NewLibraryPage() {
 
   useTheme({ systemUIVisible: true, appThemeColor: "base-200" });
   useUICSS();
+
+  const { isDragOver, isUploading, handleDragOver, handleDragLeave, handleDrop, triggerFileSelect, handleFileSelect } =
+    useBookUpload();
 
   useEffect(() => {
     if (isInitiating.current) return;
@@ -198,7 +199,15 @@ export default function NewLibraryPage() {
           </div>
         ) : (
           <div className="flex-1 px-2">
-            <Upload />
+            <Upload
+              isDragOver={isDragOver}
+              isUploading={isUploading}
+              handleDragOver={handleDragOver}
+              handleDragLeave={handleDragLeave}
+              handleDrop={handleDrop}
+              handleFileSelect={handleFileSelect}
+              triggerFileSelect={triggerFileSelect}
+            />
           </div>
         )}
       </div>

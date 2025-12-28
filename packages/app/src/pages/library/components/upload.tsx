@@ -1,13 +1,29 @@
 import { Upload as UploadIcon } from "lucide-react";
+import type { ChangeEvent, DragEvent } from "react";
 
 import { Button } from "@/components/ui/button";
-import { useBookUpload } from "@/hooks/use-book-upload";
 import { useThemeStore } from "@/store/theme-store";
 
-export default function Upload() {
+interface UploadProps {
+  isDragOver: boolean;
+  isUploading: boolean;
+  handleDragOver: (e: DragEvent) => void;
+  handleDragLeave: (e: DragEvent) => void;
+  handleDrop: (e: DragEvent) => void;
+  handleFileSelect: (e: ChangeEvent<HTMLInputElement>) => void;
+  triggerFileSelect: () => void;
+}
+
+export default function Upload({
+  isDragOver,
+  isUploading,
+  handleDragOver,
+  handleDragLeave,
+  handleDrop,
+  handleFileSelect,
+  triggerFileSelect,
+}: UploadProps) {
   const { isDarkMode } = useThemeStore();
-  const { isDragOver, isUploading, handleDragOver, handleDragLeave, handleDrop, handleFileSelect, triggerFileSelect } =
-    useBookUpload();
 
   return (
     <div className="flex h-full w-full flex-col items-center justify-center p-8">
