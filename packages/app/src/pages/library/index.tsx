@@ -10,34 +10,23 @@ import { useAppSettingsStore } from "@/store/app-settings-store";
 import { useLibraryStore } from "@/store/library-store";
 import clsx from "clsx";
 import { Plus, Upload as UploadIcon } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useEffect, useRef, useState } from "react";
 import BookItem from "./components/book-item";
-import CreateTagDialog from "./components/create-tag-dialog";
-import EditTagDialog from "./components/edit-tag-dialog";
+import SearchToggle from "./components/search-toggle";
 import Upload from "./components/upload";
 import { useBooksFilter } from "./hooks/use-books-filter";
 import { useBooksOperations } from "./hooks/use-books-operations";
 import { useLibraryUI } from "./hooks/use-library-ui";
-import { useTagsManagement } from "./hooks/use-tags-management";
-import { useTagsOperations } from "./hooks/use-tags-operations";
 
 export default function NewLibraryPage() {
   const t = useT();
-  const { searchQuery, booksWithStatus, isLoading, refreshBooks } = useLibraryStore();
+  const { searchQuery, setSearchQuery, booksWithStatus, isLoading, refreshBooks } = useLibraryStore();
   const { isSettingsDialogOpen, toggleSettingsDialog } = useAppSettingsStore();
   const insets = useSafeAreaInsets();
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-
   const isInitiating = useRef(false);
   const [libraryLoaded, setLibraryLoaded] = useState(false);
-  const [selectedTagsForDelete, setSelectedTagsForDelete] = useState<string[]>([]);
-  // 从URL获取选中的标签
-  const selectedTagFromUrl = searchParams.get("tag") || "all";
-  const { tags, filteredBooksByTag } = useTagsManagement(booksWithStatus, selectedTagFromUrl);
-  const { filteredBooks } = useBooksFilter(filteredBooksByTag, searchQuery);
-  const { viewMode, showNewTagDialog, handleCloseNewTagDialog } = useLibraryUI();
+  const { filteredBooks } = useBooksFilter(booksWithStatus, searchQuery);
+  const { viewMode } = useLibraryUI();
   const { handleBookDelete, handleBookUpdate } = useBooksOperations(refreshBooks);
 
   useTheme({ systemUIVisible: true, appThemeColor: "base-200" });
@@ -45,6 +34,10 @@ export default function NewLibraryPage() {
 
   const { isDragOver, isUploading, handleDragOver, handleDragLeave, handleDrop, triggerFileSelect, handleFileSelect } =
     useBookUpload();
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  };
 
   useEffect(() => {
     if (isInitiating.current) return;
@@ -65,27 +58,6 @@ export default function NewLibraryPage() {
       isInitiating.current = false;
     };
   }, [refreshBooks]);
-
-  const clearSelectedTags = useCallback(() => {
-    setSelectedTagsForDelete([]);
-  }, []);
-
-  const { handleEditTagCancel, editingTag } = useTagsOperations({
-    booksWithStatus,
-    handleBookUpdate,
-    refreshBooks,
-    selectedTag: selectedTagFromUrl,
-    handleTagSelect: (tagId: string) => {
-      if (tagId === "all") {
-        navigate("/");
-      } else {
-        navigate(`/?tag=${tagId}`);
-      }
-    },
-    selectedTagsForDelete,
-    tags,
-    clearSelectedTags,
-  });
 
   const visibleBooks = filteredBooks;
   const hasBooks = libraryLoaded && visibleBooks.length > 0;
@@ -121,24 +93,25 @@ export default function NewLibraryPage() {
 
       <div className="flex h-[calc(100vh-60px)] flex-1 flex-col">
         <div className="flex shrink-0 items-center justify-between px-3 pt-3">
-          <h3 className="font-bold text-3xl dark:border-neutral-700">
-            {selectedTagFromUrl === "all"
-              ? t("library.myBooks", "我的图书")
-              : tags.find((tag) => tag.id === selectedTagFromUrl)?.name || t("library.myBooks", "我的图书")}
-          </h3>
-          <Button onClick={triggerFileSelect} disabled={isUploading} variant="soft" size="sm">
-            {isUploading ? (
-              <>
-                <div className="h-4 w-4 animate-spin rounded-full border border-white/30 border-t-white" />
-                {t("library.importing", "上传中...")}
-              </>
-            ) : (
-              <>
-                <Plus size={16} />
-                {t("library.addBook", "添加书籍")}
-              </>
-            )}
-          </Button>
+          <h3 className="font-bold text-3xl dark:border-neutral-700">{t("library.myBooks", "我的图书")}</h3>
+          <div className="flex items-center gap-2">
+            <div className="w-44 sm:w-52 md:w-60">
+              <SearchToggle searchQuery={searchQuery} onSearchChange={handleSearchChange} />
+            </div>
+            <Button onClick={triggerFileSelect} disabled={isUploading} variant="soft" size="sm">
+              {isUploading ? (
+                <>
+                  <div className="h-4 w-4 animate-spin rounded-full border border-white/30 border-t-white" />
+                  {t("library.importing", "上传中...")}
+                </>
+              ) : (
+                <>
+                  <Plus size={16} />
+                  {t("library.addBook", "添加书籍")}
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         {isLoading && (
@@ -166,7 +139,6 @@ export default function NewLibraryPage() {
                       key={book.id}
                       book={book}
                       viewMode={viewMode}
-                      availableTags={tags}
                       onDelete={handleBookDelete}
                       onUpdate={handleBookUpdate}
                       onRefresh={refreshBooks}
@@ -180,7 +152,6 @@ export default function NewLibraryPage() {
                       key={book.id}
                       book={book}
                       viewMode={viewMode}
-                      availableTags={tags}
                       onDelete={handleBookDelete}
                       onUpdate={handleBookUpdate}
                       onRefresh={refreshBooks}
@@ -211,25 +182,6 @@ export default function NewLibraryPage() {
           </div>
         )}
       </div>
-
-      <CreateTagDialog
-        isOpen={showNewTagDialog}
-        onClose={handleCloseNewTagDialog}
-        books={booksWithStatus}
-        selectedTag={selectedTagFromUrl}
-        filteredBooksByTag={filteredBooksByTag}
-        onBookUpdate={handleBookUpdate}
-        onRefreshBooks={refreshBooks}
-      />
-
-      <EditTagDialog
-        isOpen={!!editingTag}
-        onClose={handleEditTagCancel}
-        tag={editingTag}
-        books={booksWithStatus}
-        onBookUpdate={handleBookUpdate}
-        onRefreshBooks={refreshBooks}
-      />
 
       <SettingsDialog open={isSettingsDialogOpen} onOpenChange={toggleSettingsDialog} />
     </div>

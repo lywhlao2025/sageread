@@ -1,17 +1,12 @@
-import AITagConfirmDialog from "@/components/ai/tag-confirm-dialog";
 import { useDownloadImage } from "@/hooks/use-download-image";
-import { useModelSelector } from "@/hooks/use-model-selector";
-import type { BookTag } from "@/pages/library/hooks/use-tags-management";
-import { type AITagSuggestion, generateTagsWithAI } from "@/services/ai-tag-service";
 import { repairStoredEpubForIndexing, updateBookVectorizationMeta } from "@/services/book-service";
 import { type EpubIndexResult, indexEpub } from "@/services/book-service";
-import { createTag, getTags } from "@/services/tag-service";
 import { useLayoutStore } from "@/store/layout-store";
 import { useNotificationStore } from "@/store/notification-store";
 import type { BookWithStatusAndUrls } from "@/types/simple-book";
 import { getCurrentVectorModelConfig } from "@/utils/model";
 import { listen } from "@tauri-apps/api/event";
-import { Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/menu";
+import { Menu, PredefinedMenuItem } from "@tauri-apps/api/menu";
 import { LogicalPosition } from "@tauri-apps/api/window";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { MoreHorizontal } from "lucide-react";
@@ -30,21 +25,14 @@ interface BookUpdateData {
 interface BookItemProps {
   book: BookWithStatusAndUrls;
   viewMode?: "grid" | "list";
-  availableTags?: BookTag[];
   onDelete?: (book: BookWithStatusAndUrls) => Promise<boolean>;
   onUpdate?: (bookId: string, updates: BookUpdateData) => Promise<boolean>;
   onRefresh?: () => Promise<void>;
 }
 
-export default function BookItem({ book, availableTags = [], onDelete, onUpdate, onRefresh }: BookItemProps) {
+export default function BookItem({ book, onDelete, onUpdate, onRefresh }: BookItemProps) {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const { downloadImage } = useDownloadImage();
-
-  // AI标签生成相关状态
-  const [showAITagDialog, setShowAITagDialog] = useState(false);
-  const [aiTagSuggestions, setAiTagSuggestions] = useState<AITagSuggestion[]>([]);
-  const [isAITagLoading, setIsAITagLoading] = useState(false);
-  const { selectedModel } = useModelSelector();
   const [showEmbeddingDialog, setShowEmbeddingDialog] = useState(false);
   const [vectorizeProgress, setVectorizeProgress] = useState<number | null>(null);
 
@@ -76,89 +64,6 @@ export default function BookItem({ book, availableTags = [], onDelete, onUpdate,
   const handleClick = useCallback(() => {
     openBook(book.id, book.title);
   }, [book.id, book.title, openBook]);
-
-  const handleAIGenerateTags = useCallback(async () => {
-    if (!selectedModel) {
-      toast.error("请先在设置中配置AI模型");
-      return;
-    }
-
-    setIsAITagLoading(true);
-
-    // 显示正在请求的toast
-    toast.info("正在请求AI生成标签...");
-
-    try {
-      // 获取现有标签
-      const existingTags = await getTags();
-
-      // 调用AI生成标签
-      const aiResponse = await generateTagsWithAI(book, existingTags, {
-        providerId: selectedModel.providerId,
-        modelId: selectedModel.modelId,
-      });
-
-      setAiTagSuggestions(aiResponse.suggestions);
-      setShowAITagDialog(true);
-    } catch (error) {
-      console.error("AI生成标签失败:", error);
-      toast.error(error instanceof Error ? error.message : "AI生成标签失败，请重试");
-    } finally {
-      setIsAITagLoading(false);
-    }
-  }, [selectedModel, book]);
-
-  const handleAITagConfirm = useCallback(
-    async (selectedTags: { name: string; isExisting: boolean; existingTagId?: string }[]) => {
-      if (selectedTags.length === 0) {
-        setShowAITagDialog(false);
-        return;
-      }
-
-      setIsAITagLoading(true);
-
-      try {
-        const tagIds: string[] = [];
-
-        for (const tag of selectedTags) {
-          if (tag.isExisting && tag.existingTagId) {
-            tagIds.push(tag.existingTagId);
-          } else {
-            const newTag = await createTag({
-              name: tag.name,
-              color: `#${Math.floor(Math.random() * 16777215).toString(16)}`,
-            });
-            tagIds.push(newTag.id);
-          }
-        }
-
-        const currentTags = book.tags || [];
-        const updatedTags = Array.from(new Set([...currentTags, ...tagIds]));
-
-        if (onUpdate) {
-          const success = await onUpdate(book.id, { tags: updatedTags });
-
-          if (success) {
-            toast.success(`成功添加 ${selectedTags.length} 个标签`);
-
-            if (onRefresh) {
-              await onRefresh();
-            }
-          } else {
-            toast.error("添加标签失败，请重试");
-          }
-        }
-
-        setShowAITagDialog(false);
-      } catch (error) {
-        console.error("添加AI标签失败:", error);
-        toast.error(error instanceof Error ? error.message : "添加标签失败，请重试");
-      } finally {
-        setIsAITagLoading(false);
-      }
-    },
-    [book, onUpdate, onRefresh],
-  );
 
   const handleNativeDelete = useCallback(async () => {
     if (onDelete) {
@@ -249,31 +154,6 @@ export default function BookItem({ book, availableTags = [], onDelete, onUpdate,
       if (onRefresh) await onRefresh();
     }
   }, [book.id, book.title, onRefresh]);
-
-  const handleTagToggle = useCallback(
-    async (tagId: string) => {
-      if (!onUpdate) return;
-
-      const currentTags = book.tags || [];
-      const hasTag = currentTags.includes(tagId);
-
-      let newTags: string[];
-      if (hasTag) {
-        // 移除标签
-        newTags = currentTags.filter((tag) => tag !== tagId);
-      } else {
-        // 添加标签（去重）
-        newTags = Array.from(new Set([...currentTags, tagId]));
-      }
-
-      try {
-        await onUpdate(book.id, { tags: newTags });
-      } catch (error) {
-        console.error("Failed to update tags:", error);
-      }
-    },
-    [book.id, book.tags, onUpdate],
-  );
 
   const renderProgress = () => {
     if (!book.status) {
@@ -369,52 +249,6 @@ export default function BookItem({ book, availableTags = [], onDelete, onUpdate,
           },
         };
 
-        const currentTags = book.tags || [];
-
-        const allTagMenuItems: any[] = [];
-
-        const aiGenerateItem = await MenuItem.new({
-          id: "ai-generate-tags",
-          text: "AI 生成",
-          action: () => {
-            handleAIGenerateTags();
-          },
-        });
-        allTagMenuItems.push(aiGenerateItem);
-
-        if (availableTags.length > 0) {
-          const aiSeparator = await PredefinedMenuItem.new({ text: "ai-separator", item: "Separator" });
-          allTagMenuItems.push(aiSeparator);
-          const databaseTags = await getTags();
-          const tagMenuItems = await Promise.all(
-            availableTags
-              .filter((tag) => tag.id !== "all" && tag.id !== "uncategorized")
-              .map(async (tag) => {
-                const tagName = tag.id.startsWith("tag-") ? tag.id.replace("tag-", "") : tag.name;
-                const dbTag = databaseTags.find((t) => t.name === tagName);
-                const realTagId = dbTag?.id;
-                const hasTag = realTagId ? currentTags.includes(realTagId) : false;
-
-                return await MenuItem.new({
-                  id: `tag-${tag.id}`,
-                  text: `${hasTag ? "✓ " : ""}${tagName}`,
-                  action: () => {
-                    if (realTagId) {
-                      handleTagToggle(realTagId);
-                    }
-                  },
-                });
-              }),
-          );
-
-          allTagMenuItems.push(...tagMenuItems);
-        }
-
-        const tagsSubmenu = await Submenu.new({
-          text: "管理标签",
-          items: allTagMenuItems,
-        });
-
         const menu = await Menu.new({
           items: [
             {
@@ -443,7 +277,6 @@ export default function BookItem({ book, availableTags = [], onDelete, onUpdate,
                   },
                 ]
               : []),
-            tagsSubmenu,
             separator2,
             markStatusItem,
             separator3,
@@ -466,13 +299,9 @@ export default function BookItem({ book, availableTags = [], onDelete, onUpdate,
       handleClick,
       handleNativeDelete,
       handleDownloadImage,
-      handleTagToggle,
-      handleAIGenerateTags,
       handleVectorizeBook,
       book.coverUrl,
       book.status,
-      availableTags,
-      book.tags,
     ],
   );
 
@@ -513,16 +342,6 @@ export default function BookItem({ book, availableTags = [], onDelete, onUpdate,
       </div>
 
       <EditInfo book={book} isOpen={showEditDialog} onClose={() => setShowEditDialog(false)} onSave={onUpdate} />
-
-      <AITagConfirmDialog
-        isOpen={showAITagDialog}
-        onClose={() => setShowAITagDialog(false)}
-        suggestions={aiTagSuggestions}
-        bookTitle={book.title}
-        bookAuthor={book.author}
-        onConfirm={handleAITagConfirm}
-        isLoading={isAITagLoading}
-      />
 
       <EmbeddingDialog isOpen={showEmbeddingDialog} onClose={() => setShowEmbeddingDialog(false)} bookId={book.id} />
     </>
