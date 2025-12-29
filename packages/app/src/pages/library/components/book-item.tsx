@@ -415,58 +415,6 @@ export default function BookItem({ book, availableTags = [], onDelete, onUpdate,
           items: allTagMenuItems,
         });
 
-        const vectorMeta = book.status?.metadata?.vectorization;
-        const isVectorized = vectorMeta?.status === "success";
-
-        const vectorizeSubmenuItems = [];
-
-        if (isVectorized) {
-          vectorizeSubmenuItems.push(
-            await MenuItem.new({
-              id: "vector-info",
-              text: "✓ 已向量化",
-              enabled: false,
-            }),
-            await MenuItem.new({
-              id: "vector-model",
-              text: `模型: ${vectorMeta?.model || "未知"}`,
-              enabled: false,
-            }),
-            await MenuItem.new({
-              id: "vector-dimension",
-              text: `维度: ${vectorMeta?.dimension || 0}`,
-              enabled: false,
-            }),
-            await MenuItem.new({
-              id: "vector-chunks",
-              text: `分块: ${vectorMeta?.chunkCount || 0}`,
-              enabled: false,
-            }),
-          );
-        }
-
-        vectorizeSubmenuItems.push(
-          await MenuItem.new({
-            id: "vectorize-epub",
-            text: isVectorized ? "重新向量化" : "开始向量化",
-            action: async () => {
-              await handleVectorizeBook();
-            },
-          }),
-          await MenuItem.new({
-            id: "test-vector",
-            text: "向量化测试",
-            action: () => {
-              setShowEmbeddingDialog(true);
-            },
-          }),
-        );
-
-        const vectorizeSubmenu = await Submenu.new({
-          text: `${isVectorized ? "✓ " : ""}向量化`,
-          items: vectorizeSubmenuItems,
-        });
-
         const menu = await Menu.new({
           items: [
             {
@@ -476,7 +424,6 @@ export default function BookItem({ book, availableTags = [], onDelete, onUpdate,
                 handleClick();
               },
             },
-            vectorizeSubmenu,
             separator1,
             {
               id: "edit",
