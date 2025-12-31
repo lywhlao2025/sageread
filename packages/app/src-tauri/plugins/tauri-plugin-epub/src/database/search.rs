@@ -59,6 +59,10 @@ impl<'a> DatabaseSearch<'a> {
         )?;
 
         let rows = stmt.query_map(params![query_bytes, limit], |row| {
+            let distance = match row.get::<_, f64>(11) {
+                Ok(value) => value,
+                Err(_) => row.get::<_, f32>(11)? as f64,
+            };
             Ok(SearchResult {
                 chunk_id: row.get(0)?,
                 book_title: row.get(1)?,
@@ -70,7 +74,7 @@ impl<'a> DatabaseSearch<'a> {
                 chunk_order_in_file: row.get(7)?,
                 total_chunks_in_file: row.get(8)?,
                 global_chunk_index: row.get(9)?,
-                similarity_score: (1.0 - row.get::<_, f64>(11)?) as f32, // 转换距离为相似度
+                similarity_score: (1.0 - distance) as f32, // 转换距离为相似度
             })
         })?;
 

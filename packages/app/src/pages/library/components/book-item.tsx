@@ -8,12 +8,22 @@ import { getCurrentVectorModelConfig } from "@/utils/model";
 import { listen } from "@tauri-apps/api/event";
 import { Menu, PredefinedMenuItem } from "@tauri-apps/api/menu";
 import { LogicalPosition } from "@tauri-apps/api/window";
-import { ask } from "@tauri-apps/plugin-dialog";
 import { MoreHorizontal } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import EditInfo from "./edit-info";
 import EmbeddingDialog from "./embedding-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { buttonVariants } from "@/components/ui/button";
 
 interface BookUpdateData {
   title?: string;
@@ -32,6 +42,7 @@ interface BookItemProps {
 
 export default function BookItem({ book, onDelete, onUpdate, onRefresh }: BookItemProps) {
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { downloadImage } = useDownloadImage();
   const [showEmbeddingDialog, setShowEmbeddingDialog] = useState(false);
   const [vectorizeProgress, setVectorizeProgress] = useState<number | null>(null);
@@ -65,20 +76,19 @@ export default function BookItem({ book, onDelete, onUpdate, onRefresh }: BookIt
     openBook(book.id, book.title);
   }, [book.id, book.title, openBook]);
 
-  const handleNativeDelete = useCallback(async () => {
-    if (onDelete) {
-      try {
-        const confirmed = await ask(`${book.title}\n\n此操作无法撤销。`, {
-          title: "确认删除",
-          kind: "warning",
-        });
+  const handleNativeDelete = useCallback(() => {
+    setShowDeleteDialog(true);
+  }, []);
 
-        if (confirmed) {
-          await onDelete(book);
-        }
-      } catch (error) {
-        console.error("Failed to show delete dialog:", error);
-      }
+  const handleConfirmDelete = useCallback(async () => {
+    if (!onDelete) {
+      setShowDeleteDialog(false);
+      return;
+    }
+    try {
+      await onDelete(book);
+    } finally {
+      setShowDeleteDialog(false);
     }
   }, [onDelete, book]);
 
@@ -342,6 +352,24 @@ export default function BookItem({ book, onDelete, onUpdate, onRefresh }: BookIt
       </div>
 
       <EditInfo book={book} isOpen={showEditDialog} onClose={() => setShowEditDialog(false)} onSave={onUpdate} />
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent className="max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base">确认删除</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
+              <span className="font-medium text-neutral-900 dark:text-neutral-100">{book.title}</span>
+              <span className="text-muted-foreground"> 将被移除，此操作无法撤销。</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="pt-2">
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction className={buttonVariants({ variant: "destructive" })} onClick={handleConfirmDelete}>
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <EmbeddingDialog isOpen={showEmbeddingDialog} onClose={() => setShowEmbeddingDialog(false)} bookId={book.id} />
     </>

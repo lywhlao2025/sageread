@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 
 use crate::database::{DatabaseConnection, DatabaseSearch, BM25Search};
@@ -58,10 +58,27 @@ impl<'a> HybridSearch<'a> {
         config: &HybridSearchConfig,
     ) -> Result<Vec<SearchResult>> {
         // 1. 并行执行两种搜索（这里是顺序执行，可以优化为真正的并行）
-        let vector_results = self.vector_only_search(query_embedding, limit * 2)?;
-        let bm25_results = self.bm25_only_search(query, limit * 2, config)?;
+        // 向量搜索失败时回退到BM25，避免整体搜索失败
+        let vector_results = match self.vector_only_search(query_embedding, limit * 2) {
+            Ok(results) => results,
+            Err(err) => {
+                log::warn!("Vector search failed, fallback to BM25-only: {}", err);
+                Vec::new()
+            }
+        };
+        let bm25_results = match self.bm25_only_search(query, limit * 2, config) {
+            Ok(results) => results,
+            Err(err) => {
+                log::warn!("BM25 search failed: {}", err);
+                Vec::new()
+            }
+        };
 
         // 2. 合并和重排序结果
+        if vector_results.is_empty() && bm25_results.is_empty() {
+            return Err(anyhow!("No search results: vector and BM25 search both failed"));
+        }
+
         let hybrid_results = self.combine_and_rerank(vector_results, bm25_results, config)?;
 
         // 3. 限制结果数量

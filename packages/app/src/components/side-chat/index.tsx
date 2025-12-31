@@ -44,7 +44,6 @@ function ChatContent({ bookId }: ChatContentProps) {
   const {
     input,
     references,
-    displayError,
     showThreads,
     threadsKey,
     isInit,
@@ -218,12 +217,11 @@ function ChatContent({ bookId }: ChatContentProps) {
           <ChatMessages
             messages={messages}
             status={status}
-            error={displayError}
             autoScroll={autoScroll}
             scrollKey={currentThread?.id ?? "__init__"}
             onReasoningTimesUpdate={handleReasoningTimesUpdate}
             onRetry={handleRetry}
-            canRetry={status === "ready" && !!displayError}
+            canRetry={false}
             onAskSelection={handleAskSelection}
             onViewToolDetail={handleViewToolDetail}
           />

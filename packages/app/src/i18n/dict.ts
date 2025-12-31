@@ -63,8 +63,8 @@ export const I18N_DICT: I18nDict = {
   "settings.title": { zh: "设置", en: "Settings" },
   "settings.language": { zh: "语言", en: "Language" },
   "settings.language.system": { zh: "跟随系统", en: "System" },
-  "settings.language.zh": { zh: "中文", en: "Chinese" },
-  "settings.language.en": { zh: "英语", en: "English" },
+  "settings.language.zh": { zh: "中文", en: "中文" },
+  "settings.language.en": { zh: "English", en: "English" },
   "settings.language.desc": { zh: "界面语言（默认跟随系统）", en: "UI language (defaults to system)" },
 
   "settings.about": { zh: "关于", en: "About" },

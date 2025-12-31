@@ -1,4 +1,5 @@
 import HomeLayout from "@/components/home-layout";
+import LanguageSwitcher from "@/components/language-switcher";
 import { NotepadContainer } from "@/components/notepad";
 import NotificationDropdown from "@/components/notification-dropdown";
 import SettingsDialog from "@/components/settings/settings-dialog";
@@ -101,6 +102,7 @@ export default function ReaderLayout() {
           }
           pinnedRight={
             <div className="flex items-center gap-1"> {/* 固定右侧的通知和窗口控制 */}
+              <LanguageSwitcher />
               <NotificationDropdown />
               <WindowControls />
             </div>

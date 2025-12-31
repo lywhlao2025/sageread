@@ -1,6 +1,6 @@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { CheckCircle, ChevronDown, Eye, Loader2, Settings, XCircle } from "lucide-react";
+import { CheckCircle, ChevronDown, Eye, Loader2, Settings } from "lucide-react";
 import { useState } from "react";
 import { useStickToBottomContext } from "use-stick-to-bottom";
 import { TOOL_NAME_MAP } from "../side-chat/chat-messages";
@@ -45,7 +45,7 @@ const Tool = ({ toolPart, defaultOpen = false, className, onViewDetail, isChatPa
       case "output-available":
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       case "output-error":
-        return <XCircle className="h-4 w-4 text-red-500" />;
+        return <Settings className="h-4 w-4 text-muted-foreground" />;
       default:
         return <Settings className="h-4 w-4 text-muted-foreground" />;
     }
@@ -71,10 +71,6 @@ const Tool = ({ toolPart, defaultOpen = false, className, onViewDetail, isChatPa
           <span className={cn(baseClasses, "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400")}>
             Completed
           </span>
-        );
-      case "output-error":
-        return (
-          <span className={cn(baseClasses, "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400")}>Error</span>
         );
       default:
         return (
@@ -159,7 +155,7 @@ const Tool = ({ toolPart, defaultOpen = false, className, onViewDetail, isChatPa
                     {String((output?.results as unknown[] | undefined)?.length || 0)} results
                   </span>
                 )}
-                {state !== "output-available" && getStateBadge()}
+                {state !== "output-available" && state !== "output-error" && getStateBadge()}
                 <ChevronDown className={cn("h-4 w-4", isOpen && "rotate-180")} />
               </div>
             </div>
@@ -191,15 +187,6 @@ const Tool = ({ toolPart, defaultOpen = false, className, onViewDetail, isChatPa
                   <h4 className="mb-2 font-medium text-muted-foreground text-sm">Output</h4>
                   <div className="max-h-60 overflow-auto rounded border bg-background p-2 font-mono text-sm">
                     <pre className="whitespace-pre-wrap">{formatValue(output)}</pre>
-                  </div>
-                </div>
-              )}
-
-              {state === "output-error" && toolPart.errorText && (
-                <div>
-                  <h4 className="mb-2 font-medium text-red-500 text-sm">Error</h4>
-                  <div className="rounded border border-red-200 bg-background p-2 text-sm dark:border-red-950 dark:bg-red-900/20">
-                    {toolPart.errorText}
                   </div>
                 </div>
               )}

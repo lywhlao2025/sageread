@@ -33,7 +33,6 @@ export const TOOL_NAME_MAP: Record<string, string> = {
 interface ChatMessagesProps {
   messages: any[];
   status: string;
-  error: any;
   autoScroll?: boolean;
   scrollKey?: string | number;
   bookId?: string | null;
@@ -129,7 +128,6 @@ function findLastPart<T>(parts: T[] | undefined, predicate: (part: T) => boolean
 export function ChatMessages({
   messages,
   status,
-  error,
   scrollKey,
   onReasoningTimesUpdate,
   onRetry,
@@ -175,8 +173,6 @@ export function ChatMessages({
 
     return cloned.textContent?.trim() || "";
   };
-
-  const errorMessage = typeof error === "string" ? error : error?.message;
 
   const { getDisplayTime, onReasoningStreamingChange } = useReasoningTimer({
     messageId: lastMessage?.id,
@@ -417,8 +413,7 @@ export function ChatMessages({
         const isLastMessage = index === safeMessages.length - 1;
         const isFirstMessage = index === 0;
         const isStreaming = status === "streaming";
-        const showError = !!errorMessage && isLastMessage;
-        const canShowRetry = showError && !!onRetry;
+        const canShowRetry = false;
         const displayMessage = getDisplayMessage(safeMessages as UIMessage[], index);
         const reorderedMessage = reorderTextAndReasoning(displayMessage);
 
@@ -508,11 +503,6 @@ export function ChatMessages({
                     )}
                   </div>
                 )}
-                {showError && (
-                  <div className="mt-2 w-full rounded-lg border border-red-200 bg-red-50 p-3 text-red-800 text-xs dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">
-                    错误: {errorMessage}
-                  </div>
-                )}
               </div>
             ) : (
               <div className={cn("group mt-7 flex max-w-full flex-col", isFirstMessage && "mt-0")}>
@@ -576,11 +566,6 @@ export function ChatMessages({
                     </Button>
                   </MessageAction>
                 </MessageActions>
-                {showError && (
-                  <div className="mt-2 max-w-full rounded-lg border border-red-200 bg-red-50 px-1.5 py-1 text-red-800 text-sm dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">
-                    {errorMessage}
-                  </div>
-                )}
               </div>
             )}
           </Message>
