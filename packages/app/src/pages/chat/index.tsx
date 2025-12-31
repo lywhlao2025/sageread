@@ -143,7 +143,7 @@ function ChatPage() {
   const [toolDetail, setToolDetail] = useState<any>(null);
   const [showToolDetail, setShowToolDetail] = useState(false);
   const scrollContextRef = useRef<any>(null);
-  const { activeBookId, activeContext, setActiveBookId, setActiveContext, currentThread, setCurrentThread } =
+  const { activeBookId, activeContext, setActiveBookId, setActiveContext, currentThread, setCurrentThread, bookData } =
     useChatReaderStore();
 
   const {
@@ -308,7 +308,15 @@ function ChatPage() {
                   <ChatMessages
                     messages={messages}
                     status={status}
-                    error={displayError}
+                    bookId={activeBookId}
+                    bookMeta={
+                      bookData?.book
+                        ? {
+                            title: bookData.book.title,
+                            author: bookData.book.author,
+                          }
+                        : undefined
+                    }
                     autoScroll={autoScroll}
                     scrollKey={currentThread?.id ?? "__global__"}
                     onReasoningTimesUpdate={handleReasoningTimesUpdate}

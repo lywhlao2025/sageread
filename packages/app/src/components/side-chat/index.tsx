@@ -38,6 +38,7 @@ function ChatContent({ bookId }: ChatContentProps) {
   const setActiveContext = useReaderStore((state) => state.setActiveContext)!;
   const progress = useReaderStore((state) => state.progress);
   const activeContext = useReaderStore((state) => state.activeContext)!;
+  const bookMeta = useReaderStore((state) => state.bookData?.book);
   const currentThread = useReaderStore((state) => state.currentThread);
   const setCurrentThread = useReaderStore((state) => state.setCurrentThread)!;
 
@@ -218,6 +219,7 @@ function ChatContent({ bookId }: ChatContentProps) {
             messages={messages}
             status={status}
             bookId={bookId}
+            bookMeta={bookMeta ? { title: bookMeta.title, author: bookMeta.author } : undefined}
             autoScroll={autoScroll}
             scrollKey={currentThread?.id ?? "__init__"}
             onReasoningTimesUpdate={handleReasoningTimesUpdate}

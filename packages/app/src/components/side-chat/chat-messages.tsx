@@ -11,7 +11,8 @@ import { cn } from "@/lib/utils";
 import { createNote } from "@/services/note-service";
 import { audioPlayerManager, synthesizeSpeechChunked } from "@/services/tts-service";
 import { useTTSStore } from "@/store/tts-store";
-import { getReasoningTimes } from "@/types/message";
+import { type MessageMetadata, getReasoningTimes } from "@/types/message";
+import type { BookMeta } from "@/types/note";
 import type { UIMessage, UIMessagePart } from "ai";
 import { useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -39,6 +40,7 @@ interface ChatMessagesProps {
   autoScroll?: boolean;
   scrollKey?: string | number;
   bookId?: string | null;
+  bookMeta?: BookMeta;
   onReasoningTimesUpdate?: (messageId: string, reasoningTimes: ReasoningTimes) => void;
   onRetry?: () => void | Promise<void>;
   canRetry?: boolean;
@@ -132,6 +134,7 @@ export function ChatMessages({
   messages,
   status,
   bookId,
+  bookMeta,
   scrollKey,
   onReasoningTimesUpdate,
   onRetry,
@@ -200,8 +203,9 @@ export function ChatMessages({
     }, 2000);
   };
 
-  const handleAddToNotes = async (messageId: string, content: string) => {
-    if (!bookId || !content.trim()) return;
+  const handleAddToNotes = async (messageId: string, content: string, quote?: string) => {
+    if (!bookId || !bookMeta || !content.trim()) return;
+    const combined = quote?.trim() ? `${quote.trim()}\n\n${content.trim()}` : content.trim();
 
     if (savedNoteMessageIds.has(messageId)) {
       toast.success(t("chat.notes.saved", "已加入笔记"));
@@ -214,7 +218,8 @@ export function ChatMessages({
     try {
       await createNote({
         bookId,
-        content,
+        bookMeta,
+        content: combined,
       });
       setSavedNoteMessageIds((prev) => new Set(prev).add(messageId));
       queryClient.invalidateQueries({ queryKey: ["notes", bookId] });
@@ -228,6 +233,29 @@ export function ChatMessages({
         return next;
       });
     }
+  };
+
+  const getMessageQuote = (messageIndex: number) => {
+    for (let i = messageIndex - 1; i >= 0; i--) {
+      const candidate = safeMessages[i];
+      if (candidate?.role !== "user") continue;
+      const refs = (candidate.metadata as MessageMetadata | undefined)?.references;
+      const refText = refs
+        ?.map((ref) => ref.text?.trim())
+        .filter(Boolean)
+        .join("\n\n");
+      if (refText) return refText;
+
+      const quoteParts = (candidate.parts || [])
+        .filter((part: any) => part?.type === "quote" && typeof part.text === "string")
+        .map((part: any) => part.text.trim())
+        .filter(Boolean);
+      if (quoteParts.length > 0) {
+        return quoteParts.join("\n\n");
+      }
+      return "";
+    }
+    return "";
   };
 
   const handlePlayAudio = async (messageId: string, text: string) => {
@@ -458,6 +486,7 @@ export function ChatMessages({
           .filter((part: any) => part?.type === "text" && typeof part.text === "string")
           .map((part: any) => part.text)
           .join("");
+        const messageQuote = getMessageQuote(index);
 
         return (
           <Message
@@ -491,7 +520,7 @@ export function ChatMessages({
                           size="icon"
                           className="size-7 rounded-full"
                           onClick={() => {
-                            handleAddToNotes(message.id, messageText);
+                            handleAddToNotes(message.id, messageText, messageQuote);
                           }}
                         >
                           <NotebookPen size={10} />
