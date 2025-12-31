@@ -12,6 +12,7 @@ import Annotator from "./annotator";
 import FooterBar from "./footer-bar";
 import HeaderBar from "./header-bar";
 import PdfViewer from "./pdf-viewer";
+import TextViewer from "./text-viewer";
 import { useReaderStore, useReaderStoreApi } from "./reader-provider";
 
 const ReaderViewerContent: React.FC = () => {
@@ -68,6 +69,7 @@ export default function ReaderViewer() {
   const isLoading = useReaderStore((state) => state.isLoading);
   const error = useReaderStore((state) => state.error);
   const isPdf = bookData?.book?.format === "PDF";
+  const isText = bookData?.book?.format === "TXT";
 
   const { settings } = useAppSettingsStore();
   const { booksWithStatus } = useLibraryStore();
@@ -121,6 +123,10 @@ export default function ReaderViewer() {
       {isPdf && bookData.file ? (
         <div className="flex flex-1 flex-col overflow-hidden">
           <PdfViewer file={bookData.file} bookId={bookId!} />
+        </div>
+      ) : isText && bookData.file ? (
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <TextViewer file={bookData.file} />
         </div>
       ) : (
         <>

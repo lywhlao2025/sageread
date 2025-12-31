@@ -93,7 +93,9 @@ export const createReaderStore = (bookId: string) => {
             ? "application/pdf"
             : simpleBook.format === "CBZ"
               ? "application/vnd.comicbook+zip"
-              : "application/epub+zip";
+              : simpleBook.format === "TXT"
+                ? "text/plain"
+                : "application/epub+zip";
         const file = new File([arrayBuffer], filename, {
           type: mimeType,
         });
@@ -112,7 +114,7 @@ export const createReaderStore = (bookId: string) => {
         };
 
         const config = await loadBookConfig(bookId, settings);
-        const { book: bookDoc } = await new DocumentLoader(file).open();
+        const bookDoc = simpleBook.format === "TXT" ? null : (await new DocumentLoader(file).open()).book;
 
         const bookData: BookDataState = {
           id: bookId,

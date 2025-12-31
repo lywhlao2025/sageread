@@ -96,7 +96,7 @@ export const useChatReaderStore = create<ChatReaderStore>((set, get) => ({
         };
 
         const config = await loadBookConfig(bookId, settings);
-        const { book: bookDoc } = await new DocumentLoader(file).open();
+        const bookDoc = simpleBook.format === "TXT" ? null : (await new DocumentLoader(file).open()).book;
 
         const bookData: BookDataState = {
           id: bookId,

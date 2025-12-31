@@ -22,6 +22,7 @@ const HeaderBar = () => {
 
   const bookId = useReaderStore((state) => state.bookId);
   const bookDoc = useReaderStore((state) => state.bookData?.bookDoc);
+  const isText = useReaderStore((state) => state.bookData?.book?.format === "TXT");
   const progress = useReaderStore((state) => state.progress);
   const sessionStats = useReaderStore((state) => state.sessionStats);
   const isSessionInitialized = useReaderStore((state) => state.isSessionInitialized);
@@ -124,33 +125,35 @@ const HeaderBar = () => {
             )}
           </div>
 
-          <DropdownMenu open={isTocDropdownOpen} onOpenChange={handleToggleTocDropdown}>
-            <DropdownMenuTrigger asChild>
-              <button className="btn btn-ghost flex h-6 w-6 items-center justify-center rounded-full p-0 outline-none focus:outline-none focus-visible:ring-0">
-                <TableOfContents size={18} className="text-base-content" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              className="max-h-[calc(100vh-8rem)] w-80 overflow-y-auto p-0"
-              align="start"
-              side="bottom"
-              sideOffset={4}
-            >
-              {bookDoc?.toc ? (
-                <div className="h-full">
-                  <TOCView
-                    toc={bookDoc.toc}
-                    bookId={bookId!}
-                    autoExpand={true}
-                    onItemSelect={handleTocItemSelect}
-                    isVisible={isTocDropdownOpen}
-                  />
-                </div>
-              ) : (
-                <div className="p-4 text-center text-muted-foreground">没有可用的目录</div>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {!isText && (
+            <DropdownMenu open={isTocDropdownOpen} onOpenChange={handleToggleTocDropdown}>
+              <DropdownMenuTrigger asChild>
+                <button className="btn btn-ghost flex h-6 w-6 items-center justify-center rounded-full p-0 outline-none focus:outline-none focus-visible:ring-0">
+                  <TableOfContents size={18} className="text-base-content" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="max-h-[calc(100vh-8rem)] w-80 overflow-y-auto p-0"
+                align="start"
+                side="bottom"
+                sideOffset={4}
+              >
+                {bookDoc?.toc ? (
+                  <div className="h-full">
+                    <TOCView
+                      toc={bookDoc.toc}
+                      bookId={bookId!}
+                      autoExpand={true}
+                      onItemSelect={handleTocItemSelect}
+                      isVisible={isTocDropdownOpen}
+                    />
+                  </div>
+                ) : (
+                  <div className="p-4 text-center text-muted-foreground">没有可用的目录</div>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
 
         <div className="flex min-w-0 flex-1 items-center justify-center gap-x-4 px-4">
@@ -181,7 +184,7 @@ const HeaderBar = () => {
             showControls ? "opacity-100" : "opacity-0"
           }`}
         >
-          <SearchDropdown />
+          {!isText && <SearchDropdown />}
           <SettingsDropdown />
           <div className="cursor-pointer" onClick={swapSidebars ? toggleNotepadSidebar : toggleChatSidebar}>
             {(swapSidebars ? isNotepadVisible : isChatVisible) ? (

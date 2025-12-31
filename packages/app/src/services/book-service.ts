@@ -183,7 +183,7 @@ export async function repairStoredEpubForIndexing(bookId: string): Promise<void>
 export async function uploadBook(file: File): Promise<SimpleBook> {
   try {
     const format = getBookFormat(file.name);
-    if (!["EPUB", "PDF", "MOBI", "CBZ", "FB2", "FBZ"].includes(format)) {
+    if (!["EPUB", "PDF", "MOBI", "CBZ", "FB2", "FBZ", "TXT"].includes(format)) {
       throw new Error(`不支持的文件格式: ${format}`);
     }
 
@@ -544,6 +544,8 @@ function getBookFormat(fileName: string): SimpleBook["format"] {
       return "FB2";
     case "fbz":
       return "FBZ";
+    case "txt":
+      return "TXT";
     default:
       return "EPUB";
   }
@@ -566,6 +568,8 @@ function getFileMimeType(fileName: string): string {
       return "application/x-fictionbook+xml";
     case "fbz":
       return "application/x-zip-compressed-fb2";
+    case "txt":
+      return "text/plain";
     default:
       return "application/octet-stream";
   }
