@@ -17,6 +17,7 @@ export interface BookDataState {
   file: File | null;
   config: BookConfig | null;
   bookDoc: BookDoc | null;
+  textContent?: string | null;
 }
 
 export type OpenDropdown = "toc" | "search" | "settings" | null;
@@ -114,7 +115,9 @@ export const createReaderStore = (bookId: string) => {
         };
 
         const config = await loadBookConfig(bookId, settings);
-        const bookDoc = simpleBook.format === "TXT" ? null : (await new DocumentLoader(file).open()).book;
+        const isText = simpleBook.format === "TXT";
+        const bookDoc = isText ? null : (await new DocumentLoader(file).open()).book;
+        const textContent = isText ? await file.text() : null;
 
         const bookData: BookDataState = {
           id: bookId,
@@ -122,6 +125,7 @@ export const createReaderStore = (bookId: string) => {
           file,
           config,
           bookDoc,
+          textContent,
         };
 
         set({

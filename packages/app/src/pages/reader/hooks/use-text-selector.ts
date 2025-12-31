@@ -9,6 +9,7 @@ export const useTextSelector = (
   bookId: string,
   setSelection: React.Dispatch<React.SetStateAction<TextSelection | null>>,
   handleDismissPopup: () => void,
+  enabled = true,
 ) => {
   const { settings } = useAppSettingsStore();
   const globalViewSettings = settings.globalViewSettings;
@@ -45,6 +46,7 @@ export const useTextSelector = (
   };
 
   const makeSelection = async (sel: Selection, index: number) => {
+    if (!enabled) return;
     const range = sel.getRangeAt(0);
     const annotationText = await getAnnotationText(range);
     const selectionObject = { key: bookId, text: annotationText, range, index };
@@ -52,6 +54,7 @@ export const useTextSelector = (
   };
 
   const handleMouseUp = (doc: Document, index: number) => {
+    if (!enabled) return;
     const sel = doc.getSelection() as Selection;
 
     if (isValidSelection(sel)) {
@@ -62,10 +65,12 @@ export const useTextSelector = (
   };
 
   const handleScroll = () => {
+    if (!enabled) return;
     handleDismissPopup();
   };
 
   const handleShowPopup = (showPopup: boolean) => {
+    if (!enabled) return;
     isPopupVisible.current = showPopup;
     if (showPopup) {
       popupShowTime.current = Date.now();
@@ -74,6 +79,7 @@ export const useTextSelector = (
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
+    if (!enabled) return;
     const handleSingleClick = (): boolean => {
       if (isPopupVisible.current) {
         const timeSincePopupShow = Date.now() - popupShowTime.current;
@@ -93,7 +99,7 @@ export const useTextSelector = (
     return () => {
       eventDispatcher.offSync("iframe-single-click", handleSingleClick);
     };
-  }, []);
+  }, [enabled, handleDismissPopup, view]);
 
   return {
     handleScroll,

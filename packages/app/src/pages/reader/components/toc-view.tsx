@@ -35,7 +35,8 @@ const TOCView: React.FC<{
   autoExpand?: boolean;
   onItemSelect?: () => void;
   isVisible?: boolean;
-}> = ({ bookId, toc, autoExpand = false, onItemSelect }) => {
+  onItemNavigate?: (item: TOCItem) => void;
+}> = ({ bookId, toc, autoExpand = false, onItemSelect, onItemNavigate }) => {
   const view = useReaderStore((state) => state.view);
   const progress = useReaderStore((state) => state.progress);
   const { settings } = useAppSettingsStore();
@@ -135,13 +136,18 @@ const TOCView: React.FC<{
 
   const handleItemClick = useCallback(
     (item: TOCItem) => {
+      if (onItemNavigate) {
+        onItemNavigate(item);
+        onItemSelect?.();
+        return;
+      }
       eventDispatcher.dispatch("navigate", { bookId, href: item.href });
       if (item.href && view) {
         view.goTo(item.href);
       }
       onItemSelect?.();
     },
-    [bookId, view, onItemSelect],
+    [bookId, view, onItemSelect, onItemNavigate],
   );
 
   const expandParents = useCallback((toc: TOCItem[], href: string) => {

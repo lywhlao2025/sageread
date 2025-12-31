@@ -12,6 +12,7 @@ import * as CFI from "foliate-js/epubcfi.js";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useReaderStore, useReaderStoreApi } from "../components/reader-provider";
+import { buildTextRangeCfi } from "../utils/text-toc";
 import { useSelectionTranslate } from "./use-selection-translate";
 
 function getContextByRange(range: Range, win = 30) {
@@ -74,6 +75,20 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
   const annotPopupHeight = 36;
   const translatePopupWidth = Math.min(360, window.innerWidth - 2 * popupPadding);
   const translatePopupHeight = 220;
+  const isText = bookData?.book?.format === "TXT";
+
+  const getTextRangeFromSelection = (range: Range): { start: number; end: number } | null => {
+    const startNode = range.startContainer;
+    const endNode = range.endContainer;
+    const startElement = startNode.nodeType === Node.ELEMENT_NODE ? (startNode as Element) : startNode.parentElement;
+    const endElement = endNode.nodeType === Node.ELEMENT_NODE ? (endNode as Element) : endNode.parentElement;
+    const startLine = startElement?.closest("[data-line]")?.getAttribute("data-line");
+    const endLine = endElement?.closest("[data-line]")?.getAttribute("data-line");
+    const start = startLine ? Number.parseInt(startLine, 10) : Number.NaN;
+    const end = endLine ? Number.parseInt(endLine, 10) : Number.NaN;
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+    return { start: Math.min(start, end), end: Math.max(start, end) };
+  };
 
   const {
     content: translateContent,
@@ -111,7 +126,12 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
       if (!selection || !selection.text) return;
       setHighlightOptionsVisible(true);
       const { booknotes: annotations = [] } = config;
-      const cfi = view?.getCFI(selection.index, selection.range);
+      const cfi = isText
+        ? (() => {
+            const range = getTextRangeFromSelection(selection.range);
+            return range ? buildTextRangeCfi(range.start, range.end) : null;
+          })()
+        : view?.getCFI(selection.index, selection.range);
       if (!cfi) return;
 
       const style = settings.globalReadSettings.highlightStyle;
@@ -135,8 +155,10 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
               ann.id === existingAnnotation.id ? updatedAnnotation : ann,
             );
             const updatedConfig = store.getState().updateBooknotes(updatedAnnotations);
-            view?.addAnnotation(updatedAnnotation, true);
-            view?.addAnnotation(updatedAnnotation);
+            if (!isText) {
+              view?.addAnnotation(updatedAnnotation, true);
+              view?.addAnnotation(updatedAnnotation);
+            }
 
             if (updatedConfig) {
               await store.getState().saveConfig(updatedConfig);
@@ -146,8 +168,9 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
             await deleteBookNote(existingAnnotation.id);
             const updatedAnnotations = annotations.filter((ann) => ann.id !== existingAnnotation.id);
             const updatedConfig = store.getState().updateBooknotes(updatedAnnotations);
-
-            view?.addAnnotation(existingAnnotation, true);
+            if (!isText) {
+              view?.addAnnotation(existingAnnotation, true);
+            }
 
             setShowAnnotPopup(false);
 
@@ -175,8 +198,9 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
 
           const updatedAnnotations = [...annotations, newAnnotation];
           const updatedConfig = store.getState().updateBooknotes(updatedAnnotations);
-
-          view?.addAnnotation(newAnnotation);
+          if (!isText) {
+            view?.addAnnotation(newAnnotation);
+          }
           setSelection({ ...selection, annotated: true });
 
           if (updatedConfig) {
@@ -190,7 +214,7 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
         toast.error("Failed to save annotation");
       }
     },
-    [selection, config, view, settings, bookId, store, queryClient],
+    [selection, config, view, settings, bookId, store, queryClient, isText],
   );
 
   const addNote = useCallback(
@@ -385,7 +409,7 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
   // 加载当前页面的标注
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
-    if (!progress) return;
+    if (!progress || isText) return;
     const { location } = progress;
     const start = CFI.collapse(location);
     const end = CFI.collapse(location, true);
@@ -404,7 +428,7 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
       console.warn(e);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [progress]);
+  }, [progress, isText]);
 
   return {
     // 状态

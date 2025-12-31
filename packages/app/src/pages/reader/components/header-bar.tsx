@@ -2,8 +2,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/compon
 import { useLayoutStore } from "@/store/layout-store";
 import { useThemeStore } from "@/store/theme-store";
 import { SessionState } from "@/types/reading-session";
+import { eventDispatcher } from "@/utils/event";
 import { Clock, TableOfContents } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   TbLayoutSidebarLeftCollapse,
   TbLayoutSidebarLeftCollapseFilled,
@@ -15,6 +16,8 @@ import { useReaderStore } from "./reader-provider";
 import SearchDropdown from "./search-dropdown";
 import SettingsDropdown from "./settings-dropdown";
 import TOCView from "./toc-view";
+import TextSearchDropdown from "./text-search-dropdown";
+import { buildTextToc, parseTextAnchor } from "../utils/text-toc";
 
 const HeaderBar = () => {
   const headerRef = useRef<HTMLDivElement>(null);
@@ -22,6 +25,7 @@ const HeaderBar = () => {
 
   const bookId = useReaderStore((state) => state.bookId);
   const bookDoc = useReaderStore((state) => state.bookData?.bookDoc);
+  const textContent = useReaderStore((state) => state.bookData?.textContent);
   const isText = useReaderStore((state) => state.bookData?.book?.format === "TXT");
   const progress = useReaderStore((state) => state.progress);
   const sessionStats = useReaderStore((state) => state.sessionStats);
@@ -34,6 +38,9 @@ const HeaderBar = () => {
   const { swapSidebars } = useThemeStore();
 
   const isTocDropdownOpen = openDropdown === "toc";
+  const textToc = useMemo(() => buildTextToc(textContent), [textContent]);
+  const tocItems = isText ? textToc : bookDoc?.toc ?? [];
+  const showTocDropdown = !isText || textContent != null;
 
   const {
     isVisible: showControls,
@@ -104,6 +111,13 @@ const HeaderBar = () => {
     setOpenDropdown?.(null);
   };
 
+  const handleTextTocNavigate = (item: { href?: string }) => {
+    if (!item.href) return;
+    const line = parseTextAnchor(item.href);
+    if (line === null) return;
+    eventDispatcher.dispatch("text-navigate", { bookId, line });
+  };
+
   return (
     <div className="w-full">
       <div
@@ -125,7 +139,7 @@ const HeaderBar = () => {
             )}
           </div>
 
-          {!isText && (
+          {showTocDropdown && (
             <DropdownMenu open={isTocDropdownOpen} onOpenChange={handleToggleTocDropdown}>
               <DropdownMenuTrigger asChild>
                 <button className="btn btn-ghost flex h-6 w-6 items-center justify-center rounded-full p-0 outline-none focus:outline-none focus-visible:ring-0">
@@ -138,14 +152,15 @@ const HeaderBar = () => {
                 side="bottom"
                 sideOffset={4}
               >
-                {bookDoc?.toc ? (
+                {tocItems.length > 0 ? (
                   <div className="h-full">
                     <TOCView
-                      toc={bookDoc.toc}
+                      toc={tocItems}
                       bookId={bookId!}
                       autoExpand={true}
                       onItemSelect={handleTocItemSelect}
                       isVisible={isTocDropdownOpen}
+                      onItemNavigate={isText ? handleTextTocNavigate : undefined}
                     />
                   </div>
                 ) : (
@@ -184,7 +199,7 @@ const HeaderBar = () => {
             showControls ? "opacity-100" : "opacity-0"
           }`}
         >
-          {!isText && <SearchDropdown />}
+          {isText ? <TextSearchDropdown /> : <SearchDropdown />}
           <SettingsDropdown />
           <div className="cursor-pointer" onClick={swapSidebars ? toggleNotepadSidebar : toggleChatSidebar}>
             {(swapSidebars ? isNotepadVisible : isChatVisible) ? (

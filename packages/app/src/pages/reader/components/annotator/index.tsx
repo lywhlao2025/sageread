@@ -9,6 +9,8 @@ import { useEffect, useRef, useState } from "react";
 import { FiCopy, FiHelpCircle, FiMessageCircle } from "react-icons/fi";
 import { PiHighlighterFill } from "react-icons/pi";
 import { RiDeleteBinLine } from "react-icons/ri";
+import { eventDispatcher } from "@/utils/event";
+import type { TextSelection } from "@/utils/sel";
 import { useAnnotator } from "../../hooks/use-annotator";
 import { useFoliateEvents } from "../../hooks/use-foliate-events";
 import { useTextSelector } from "../../hooks/use-text-selector";
@@ -23,6 +25,7 @@ const Annotator: React.FC = () => {
 
   const bookId = useReaderStore((state) => state.bookId)!;
   const view = useReaderStore((state) => state.view);
+  const isText = useReaderStore((state) => state.bookData?.book?.format === "TXT");
   const globalViewSettings = settings.globalViewSettings;
 
   // 使用 use-annotator hook
@@ -60,7 +63,12 @@ const Annotator: React.FC = () => {
     translateError,
   } = useAnnotator({ bookId });
 
-  const { handleScroll, handleMouseUp, handleShowPopup } = useTextSelector(bookId, setSelection, handleDismissPopup);
+  const { handleScroll, handleMouseUp, handleShowPopup } = useTextSelector(
+    bookId,
+    setSelection,
+    handleDismissPopup,
+    !isText,
+  );
 
   const onLoad = (event: Event) => {
     const detail = (event as CustomEvent).detail;
@@ -121,6 +129,29 @@ const Annotator: React.FC = () => {
   useEffect(() => {
     handleShowPopup(showAnnotPopup || showAskAIPopup || showTranslatePopup);
   }, [showAnnotPopup, showAskAIPopup, showTranslatePopup]);
+
+  useEffect(() => {
+    if (!isText) return;
+
+    const handleTextSelection = (event: CustomEvent) => {
+      const detail = event.detail as { bookId?: string; selection?: TextSelection } | undefined;
+      if (!detail || detail.bookId !== bookId || !detail.selection) return;
+      setSelection(detail.selection);
+    };
+
+    const handleClearSelection = (event: CustomEvent) => {
+      const detail = event.detail as { bookId?: string } | undefined;
+      if (!detail || detail.bookId !== bookId) return;
+      handleDismissPopup();
+    };
+
+    eventDispatcher.on("text-selection", handleTextSelection);
+    eventDispatcher.on("text-selection-clear", handleClearSelection);
+    return () => {
+      eventDispatcher.off("text-selection", handleTextSelection);
+      eventDispatcher.off("text-selection-clear", handleClearSelection);
+    };
+  }, [bookId, handleDismissPopup, isText, setSelection]);
 
   const translatePopupRef = useRef<HTMLDivElement>(null);
   useEffect(() => {

@@ -124,9 +124,10 @@ export default function ReaderViewer() {
         <div className="flex flex-1 flex-col overflow-hidden">
           <PdfViewer file={bookData.file} bookId={bookId!} />
         </div>
-      ) : isText && bookData.file ? (
+      ) : isText ? (
         <div className="flex flex-1 flex-col overflow-hidden">
-          <TextViewer file={bookData.file} />
+          <TextViewer bookId={bookId} textContent={bookData.textContent} />
+          <Annotator />
         </div>
       ) : (
         <>
