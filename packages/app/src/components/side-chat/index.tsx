@@ -217,6 +217,7 @@ function ChatContent({ bookId }: ChatContentProps) {
           <ChatMessages
             messages={messages}
             status={status}
+            bookId={bookId}
             autoScroll={autoScroll}
             scrollKey={currentThread?.id ?? "__init__"}
             onReasoningTimesUpdate={handleReasoningTimesUpdate}

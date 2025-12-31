@@ -4,15 +4,18 @@ import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/prom
 import { Tool } from "@/components/prompt-kit/tool";
 import { Button } from "@/components/ui/button";
 import { useIsChatPage } from "@/hooks/use-is-chat-page";
+import { useT } from "@/hooks/use-i18n";
 import { type ReasoningTimes, useReasoningTimer } from "@/hooks/use-reasoning-timer";
 import { useTextSelection } from "@/hooks/use-text-selection";
 import { cn } from "@/lib/utils";
+import { createNote } from "@/services/note-service";
 import { audioPlayerManager, synthesizeSpeechChunked } from "@/services/tts-service";
 import { useTTSStore } from "@/store/tts-store";
 import { getReasoningTimes } from "@/types/message";
 import type { UIMessage, UIMessagePart } from "ai";
+import { useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { Brain, Check, Copy, Loader2, Pause, Quote, RefreshCw, Volume2 } from "lucide-react";
+import { Brain, Check, Copy, Loader2, NotebookPen, Pause, Quote, RefreshCw, Volume2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useStickToBottomContext } from "use-stick-to-bottom";
@@ -128,6 +131,7 @@ function findLastPart<T>(parts: T[] | undefined, predicate: (part: T) => boolean
 export function ChatMessages({
   messages,
   status,
+  bookId,
   scrollKey,
   onReasoningTimesUpdate,
   onRetry,
@@ -135,9 +139,11 @@ export function ChatMessages({
   onAskSelection,
   onViewToolDetail,
 }: ChatMessagesProps) {
+  const t = useT();
   const safeMessages = (Array.isArray(messages) ? messages : []).filter(Boolean) as UIMessage[];
   const { scrollToBottom } = useStickToBottomContext();
   const isChatPage = useIsChatPage();
+  const queryClient = useQueryClient();
   const displayLastMessage =
     safeMessages.length > 0 ? getDisplayMessage(safeMessages as UIMessage[], safeMessages.length - 1) : undefined;
   const lastMessage = displayLastMessage ? reorderTextAndReasoning(displayLastMessage) : undefined;
@@ -147,6 +153,8 @@ export function ChatMessages({
   const existingReasoningTimes = lastMessage ? getReasoningTimes(lastMessage) : undefined;
 
   const [copiedMessageIds, setCopiedMessageIds] = useState<Set<string>>(new Set());
+  const [savedNoteMessageIds, setSavedNoteMessageIds] = useState<Set<string>>(new Set());
+  const [savingNoteMessageIds, setSavingNoteMessageIds] = useState<Set<string>>(new Set());
   const [audioStates, setAudioStates] = useState<Map<string, "idle" | "loading" | "playing" | "paused">>(new Map());
   const [audioUrls, setAudioUrls] = useState<Map<string, string>>(new Map());
 
@@ -190,6 +198,36 @@ export function ChatMessages({
         return newSet;
       });
     }, 2000);
+  };
+
+  const handleAddToNotes = async (messageId: string, content: string) => {
+    if (!bookId || !content.trim()) return;
+
+    if (savedNoteMessageIds.has(messageId)) {
+      toast.success(t("chat.notes.saved", "已加入笔记"));
+      return;
+    }
+
+    if (savingNoteMessageIds.has(messageId)) return;
+
+    setSavingNoteMessageIds((prev) => new Set(prev).add(messageId));
+    try {
+      await createNote({
+        bookId,
+        content,
+      });
+      setSavedNoteMessageIds((prev) => new Set(prev).add(messageId));
+      queryClient.invalidateQueries({ queryKey: ["notes", bookId] });
+      toast.success(t("chat.notes.saved", "已加入笔记"));
+    } catch (error) {
+      console.error("Failed to add note from chat message:", error);
+    } finally {
+      setSavingNoteMessageIds((prev) => {
+        const next = new Set(prev);
+        next.delete(messageId);
+        return next;
+      });
+    }
   };
 
   const handlePlayAudio = async (messageId: string, text: string) => {
@@ -416,6 +454,10 @@ export function ChatMessages({
         const canShowRetry = false;
         const displayMessage = getDisplayMessage(safeMessages as UIMessage[], index);
         const reorderedMessage = reorderTextAndReasoning(displayMessage);
+        const messageText = (reorderedMessage.parts || [])
+          .filter((part: any) => part?.type === "text" && typeof part.text === "string")
+          .map((part: any) => part.text)
+          .join("");
 
         return (
           <Message
@@ -443,6 +485,18 @@ export function ChatMessages({
                           </Button>
                         </MessageAction>
                       )}
+                      <MessageAction tooltip="加入笔记" delayDuration={100}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 rounded-full"
+                          onClick={() => {
+                            handleAddToNotes(message.id, messageText);
+                          }}
+                        >
+                          <NotebookPen size={10} />
+                        </Button>
+                      </MessageAction>
                       <MessageAction tooltip={copiedMessageIds.has(message.id) ? "已复制" : "复制"} delayDuration={100}>
                         <Button
                           variant="ghost"

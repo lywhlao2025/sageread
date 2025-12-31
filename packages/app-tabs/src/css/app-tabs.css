@@ -80,10 +80,10 @@
 }
 .chrome-tabs .chrome-tab[active] {
   z-index: 5;
-  background: #ffffff;
+  background: #e6f4ea;
   border-radius: 8px;
-  border: 1px solid var(--color-neutral-300);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #b7e0c1;
+  box-shadow: 0 1px 3px rgba(22, 101, 52, 0.12);
 }
 .chrome-tabs .chrome-tab[active] .chrome-tab-background > svg .chrome-tab-geometry {
   display: none;
@@ -200,12 +200,12 @@
 }
 
 .chrome-tabs .chrome-tab[active] .chrome-tab-close {
-  background: linear-gradient(to right, transparent 0%, #ffffff 30%, #ffffff 100%);
+  background: linear-gradient(to right, transparent 0%, #e6f4ea 30%, #e6f4ea 100%);
 }
 
 @media (hover: hover) {
   .chrome-tabs .chrome-tab:not([active]):hover .chrome-tab-close {
-    background: linear-gradient(to right, transparent 0%, #ffffff 30%, #ffffff 100%);
+    background: linear-gradient(to right, transparent 0%, #e6f4ea 30%, #e6f4ea 100%);
   }
 }
 .chrome-tabs .chrome-tab .chrome-tab-close::before {
