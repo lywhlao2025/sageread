@@ -59,6 +59,12 @@ function isSelectionTranslateOrExplain(message: UIMessage | undefined): boolean 
   );
 }
 
+function hasQuickActionQuote(message: UIMessage | undefined): boolean {
+  if (!message || message.role !== "user") return false;
+  const parts = Array.isArray((message as any).parts) ? (message as any).parts : [];
+  return parts.some((p: any) => p?.type === "quote" && p?.source === "引用");
+}
+
 /**
  * Best-effort detection for Ollama-local OpenAI-compatible endpoints.
  * These endpoints frequently reject tool-calling on some models, so we downgrade gracefully.
@@ -153,6 +159,8 @@ export class CustomChatTransport implements ChatTransport<UIMessage> {
     const disableToolsForThisRequest =
       isSelectionTranslateOrExplain(rawLastUserMessage) ||
       isSelectionTranslateOrExplain(lastUserMessage) ||
+      hasQuickActionQuote(rawLastUserMessage) ||
+      hasQuickActionQuote(lastUserMessage) ||
       // For Ollama local endpoints, default to disabling tools to avoid hard failures on models without tools support.
       shouldDisableToolsForCurrentModel();
 
