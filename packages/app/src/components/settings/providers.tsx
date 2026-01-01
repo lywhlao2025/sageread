@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { useT } from "@/hooks/use-i18n";
 import { useProviderStore } from "@/store/provider-store";
 import { Plus, Settings } from "lucide-react";
 import { ProviderIcons } from "./settings-dialog";
@@ -10,6 +11,7 @@ interface ProvidersSettingsProps {
 }
 
 export default function ProvidersSettings({ onProviderSelect }: ProvidersSettingsProps) {
+  const t = useT();
   const { modelProviders, setModelProviders, addProvider } = useProviderStore();
 
   const toggleProviderEnabled = (providerId: string) => {
@@ -28,10 +30,10 @@ export default function ProvidersSettings({ onProviderSelect }: ProvidersSetting
     <div className="p-4 pt-3">
       <div className="rounded-lg bg-muted/80 p-4">
         <div className="flex items-center justify-between border-b pb-4">
-          <h2 className="text dark:text-neutral-200">模型提供商</h2>
+          <h2 className="text dark:text-neutral-200">{t("settings.section.modelProviders", "模型提供商")}</h2>
           <Button variant="soft" size="sm" onClick={handleAddProvider}>
             <Plus className="h-4 w-4" />
-            添加提供商
+            {t("settings.providers.add", "添加提供商")}
           </Button>
         </div>
 
@@ -48,7 +50,7 @@ export default function ProvidersSettings({ onProviderSelect }: ProvidersSetting
                     <div>
                       <span className="text-sm dark:text-neutral-200">{providerName}</span>
                       <p className="text-gray-600 text-xs dark:text-neutral-400">
-                        {modelCount === 1 ? "个模型" : `${modelCount} 个模型`}
+                        {t("settings.providers.modelsCount", "{count} 个模型", { count: modelCount })}
                       </p>
                     </div>
                   </div>

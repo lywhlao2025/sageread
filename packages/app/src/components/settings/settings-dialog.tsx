@@ -66,13 +66,13 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
   const { modelProviders } = useProviderStore();
 
   const settingsItems: SettingsItem[] = [
-    { key: "general", label: "常规" },
-    { key: "font-manager", label: "字体管理" },
-    { key: "llama", label: "向量模型" },
-    { key: "tts", label: "语音模型" },
+    { key: "general", label: t("settings.section.general", "常规") },
+    { key: "font-manager", label: t("settings.section.fontManager", "字体管理") },
+    { key: "llama", label: t("settings.section.vectorModel", "向量模型") },
+    { key: "tts", label: t("settings.section.ttsModel", "语音模型") },
     {
       key: "model-providers",
-      label: "模型提供商",
+      label: t("settings.section.modelProviders", "模型提供商"),
       children: modelProviders.map((provider) => ({
         key: `provider-${provider.provider}` as SettingsKey,
         label: provider.name,

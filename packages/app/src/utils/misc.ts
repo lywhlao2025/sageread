@@ -34,7 +34,9 @@ export const makeSafeFilename = (filename: string, replacement = "_") => {
 
 export const getLocale = () => {
   const resolved = useI18nStore.getState().getResolvedLocale();
-  return resolved === "en" ? "en" : "zh-CN";
+  if (resolved === "zh") return "zh-CN";
+  if (resolved === "pt-BR") return "pt-BR";
+  return resolved;
 };
 
 export const getUserLang = () => {
@@ -44,7 +46,25 @@ export const getUserLang = () => {
 
 export const getTargetLang = () => {
   const resolved = useI18nStore.getState().getResolvedLocale();
-  return resolved === "en" ? "English" : "中文";
+  switch (resolved) {
+    case "zh":
+      return "中文";
+    case "ja":
+      return "日本語";
+    case "ko":
+      return "한국어";
+    case "es":
+      return "Español";
+    case "fr":
+      return "Français";
+    case "de":
+      return "Deutsch";
+    case "pt-BR":
+      return "Português (Brasil)";
+    case "en":
+    default:
+      return "English";
+  }
 };
 
 export const isCJKEnv = () => {

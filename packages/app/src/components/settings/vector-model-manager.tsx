@@ -8,8 +8,10 @@ import { type as getOsType } from "@tauri-apps/plugin-os";
 import { Edit2, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useT } from "@/hooks/use-i18n";
 
 export default function VectorModelManager() {
+  const t = useT();
   const {
     vectorModelEnabled,
     vectorModels,
@@ -61,7 +63,7 @@ export default function VectorModelManager() {
 
   const handleAdd = () => {
     if (!formData.name.trim() || !formData.url.trim() || !formData.modelId.trim()) {
-      toast.error("请填写必填字段：名称、URL、模型ID");
+      toast.error(t("settings.vectorModel.validation.requiredAll", "请填写必填字段：名称、URL、模型ID"));
       return;
     }
 
@@ -71,7 +73,7 @@ export default function VectorModelManager() {
     };
 
     addVectorModel(newModel);
-    toast.success(`已添加模型配置：${formData.name}`);
+    toast.success(t("settings.vectorModel.toast.added", "已添加模型配置：{name}", { name: formData.name }));
     resetForm();
   };
 
@@ -88,25 +90,29 @@ export default function VectorModelManager() {
 
   const handleEdit = () => {
     if (!editingId || !formData.name.trim() || !formData.url.trim() || !formData.modelId.trim()) {
-      toast.error("请填写必填字段");
+      toast.error(t("settings.vectorModel.validation.required", "请填写必填字段"));
       return;
     }
 
     updateVectorModel(editingId, formData);
-    toast.success(`已更新模型配置：${formData.name}`);
+    toast.success(t("settings.vectorModel.toast.updated", "已更新模型配置：{name}", { name: formData.name }));
     resetForm();
   };
 
   const handleDelete = async (id: string, name: string) => {
     try {
-      const confirmed = await ask(`确定删除模型配置"${name}"吗？\n\n此操作无法撤销。`, {
-        title: "确认删除",
+      const confirmed = await ask(
+        t("settings.vectorModel.confirm.delete.body", '确定删除模型配置"{name}"吗？\n\n此操作无法撤销。', {
+          name,
+        }),
+        {
+          title: t("settings.vectorModel.confirm.delete.title", "确认删除"),
         kind: "warning",
       });
 
       if (confirmed) {
         deleteVectorModel(id);
-        toast.success(`已删除模型配置：${name}`);
+        toast.success(t("settings.vectorModel.toast.deleted", "已删除模型配置：{name}", { name }));
       }
     } catch (error) {
       console.error("删除模型配置失败:", error);
@@ -132,10 +138,10 @@ export default function VectorModelManager() {
       const requestBody = isOllama
         ? {
             model: model.modelId,
-            input: testText || "测试文本",
+            input: testText || t("settings.vectorModel.testText.placeholder", "测试文本"),
           }
         : {
-            input: [testText || "测试文本"],
+            input: [testText || t("settings.vectorModel.testText.placeholder", "测试文本")],
             model: model.modelId,
             encoding_format: "float",
           };
@@ -155,24 +161,30 @@ export default function VectorModelManager() {
       const len = isOllama ? (json?.embeddings?.[0]?.length ?? 0) : (json?.data?.[0]?.embedding?.length ?? 0);
 
       updateVectorModel(model.id, { dimension: len });
-      setTestResults((prev) => ({ ...prev, [model.id]: `连接成功 | 维度: ${len}` }));
+      setTestResults((prev) => ({
+        ...prev,
+        [model.id]: t("settings.vectorModel.test.success", "连接成功 | 维度: {len}", { len }),
+      }));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      setTestResults((prev) => ({ ...prev, [model.id]: `连接失败: ${message}` }));
+      setTestResults((prev) => ({
+        ...prev,
+        [model.id]: t("settings.vectorModel.test.fail", "连接失败: {message}", { message }),
+      }));
     } finally {
       setTestingId(null);
     }
   };
 
   const testModel = async (model: VectorModelConfig) => {
-    await detectModelDimension(model, "测试中...");
+    await detectModelDimension(model, t("settings.vectorModel.test.running", "测试中..."));
   };
 
   const handleModelSelect = async (model: VectorModelConfig, checked: boolean) => {
     if (checked) {
       setSelectedVectorModelId(model.id);
       if (!model.dimension) {
-        await detectModelDimension(model, "检测维度中...");
+        await detectModelDimension(model, t("settings.vectorModel.dimension.detecting", "检测维度中..."));
       }
     } else {
       setSelectedVectorModelId(null);
@@ -182,16 +194,16 @@ export default function VectorModelManager() {
   return (
     <section className="rounded-lg bg-muted/80 p-4 pt-3">
       <div className="mb-4 flex items-center justify-between">
-        <h2>向量模型配置</h2>
+        <h2>{t("settings.vectorModel.title", "向量模型配置")}</h2>
       </div>
 
       <div className="space-y-4">
         {isMacOS && (
           <div className="flex items-start justify-between">
             <div>
-              <div className={labelClass}>使用远程向量模型</div>
+              <div className={labelClass}>{t("settings.vectorModel.remote.toggle", "使用远程向量模型")}</div>
               <div className="text-neutral-500 text-xs dark:text-neutral-400">
-                启用后将使用配置的向量模型，而非本地 Llama.cpp 服务
+                {t("settings.vectorModel.remote.desc", "启用后将使用配置的向量模型，而非本地 Llama.cpp 服务")}
               </div>
             </div>
             <Switch checked={vectorModelEnabled} onCheckedChange={setVectorModelEnabled} />
@@ -200,8 +212,10 @@ export default function VectorModelManager() {
 
         {!isMacOS && (
           <div className="mb-4">
-            <div className={labelClass}>远程向量模型</div>
-            <div className="text-neutral-500 text-xs dark:text-neutral-400">当前平台仅支持远程向量模型</div>
+            <div className={labelClass}>{t("settings.vectorModel.remote.only", "远程向量模型")}</div>
+            <div className="text-neutral-500 text-xs dark:text-neutral-400">
+              {t("settings.vectorModel.remote.onlyDesc", "当前平台仅支持远程向量模型")}
+            </div>
           </div>
         )}
 
@@ -210,8 +224,12 @@ export default function VectorModelManager() {
             <div className="space-y-3">
               {vectorModels.length === 0 ? (
                 <div className="space-y-1 rounded-lg border p-4 text-center">
-                  <p className="text-neutral-600 dark:text-neutral-200">暂无配置的模型</p>
-                  <p className="text-neutral-600 text-xs dark:text-neutral-200">点击下方"添加模型"开始配置</p>
+                  <p className="text-neutral-600 dark:text-neutral-200">
+                    {t("settings.vectorModel.empty", "暂无配置的模型")}
+                  </p>
+                  <p className="text-neutral-600 text-xs dark:text-neutral-200">
+                    {t("settings.vectorModel.emptyHint", '点击下方"添加模型"开始配置')}
+                  </p>
                 </div>
               ) : (
                 vectorModels.map((model) => (
@@ -222,14 +240,14 @@ export default function VectorModelManager() {
                         <button
                           onClick={() => handleDelete(model.id, model.name)}
                           className="p-0 text-neutral-500 hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400"
-                          title="删除模型"
+                          title={t("settings.vectorModel.action.delete", "删除模型")}
                         >
                           <Trash2 className="size-3" />
                         </button>
                         <button
                           onClick={() => startEdit(model)}
                           className="p-0 text-neutral-500 hover:text-blue-600 dark:text-neutral-400 dark:hover:text-blue-400"
-                          title="编辑模型"
+                          title={t("settings.vectorModel.action.edit", "编辑模型")}
                         >
                           <Edit2 className="size-3" />
                         </button>
@@ -238,11 +256,15 @@ export default function VectorModelManager() {
                           disabled={testingId === model.id}
                           className="cursor-pointer text-xs"
                         >
-                          测试
+                          {t("settings.vectorModel.action.test", "测试")}
                         </button>
                       </div>
                       <p className="mt-1 text-neutral-600 text-xs dark:text-neutral-400">
-                        {model.url} • {model.dimension && `维度: ${model.dimension}`}
+                        {model.url} •{" "}
+                        {model.dimension &&
+                          t("settings.vectorModel.dimension.label", "维度: {dimension}", {
+                            dimension: model.dimension,
+                          })}
                         {testResults[model.id] && (
                           <span
                             className={`mt-1 ml-1 text-xs ${
@@ -273,7 +295,9 @@ export default function VectorModelManager() {
               <div className="rounded-lg border border-neutral-200 bg-background p-4 dark:border-neutral-700 dark:bg-neutral-800">
                 <div className="mb-3 flex items-center justify-between">
                   <h4 className="font-medium text-neutral-900 dark:text-neutral-100">
-                    {editingId ? "编辑模型配置" : "添加新模型"}
+                    {editingId
+                      ? t("settings.vectorModel.edit.title", "编辑模型配置")
+                      : t("settings.vectorModel.add.title", "添加新模型")}
                   </h4>
                   <Button size="sm" variant="ghost" onClick={resetForm} className="h-8 px-2">
                     <X size={14} />
@@ -283,7 +307,7 @@ export default function VectorModelManager() {
                 <div className="grid gap-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className={labelClass}>名称 *</label>
+                      <label className={labelClass}>{t("settings.vectorModel.form.name", "名称")} *</label>
                       <Input
                         value={formData.name}
                         onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
@@ -292,7 +316,7 @@ export default function VectorModelManager() {
                       />
                     </div>
                     <div>
-                      <label className={labelClass}>模型ID *</label>
+                      <label className={labelClass}>{t("settings.vectorModel.form.modelId", "模型ID")} *</label>
                       <Input
                         value={formData.modelId}
                         onChange={(e) => setFormData((prev) => ({ ...prev, modelId: e.target.value }))}
@@ -302,7 +326,7 @@ export default function VectorModelManager() {
                     </div>
                   </div>
                   <div>
-                    <label className={labelClass}>API端点（完整URL）*</label>
+                    <label className={labelClass}>{t("settings.vectorModel.form.endpoint", "API端点（完整URL）")}*</label>
                     <Input
                       value={formData.url}
                       onChange={(e) => setFormData((prev) => ({ ...prev, url: e.target.value }))}
@@ -310,11 +334,14 @@ export default function VectorModelManager() {
                       className="h-8"
                     />
                     <p className="mt-1 text-neutral-500 text-xs dark:text-neutral-400">
-                      请输入完整的 embeddings 端点 URL，包括路径（如 /v1/embeddings）
+                      {t(
+                        "settings.vectorModel.form.endpointHint",
+                        "请输入完整的 embeddings 端点 URL，包括路径（如 /v1/embeddings）",
+                      )}
                     </p>
                   </div>
                   <div>
-                    <label className={labelClass}>API Key</label>
+                    <label className={labelClass}>{t("settings.vectorModel.form.apiKey", "API Key")}</label>
                     <Input
                       type="password"
                       value={formData.apiKey}
@@ -324,11 +351,11 @@ export default function VectorModelManager() {
                     />
                   </div>
                   <div>
-                    <label className={labelClass}>描述</label>
+                    <label className={labelClass}>{t("settings.vectorModel.form.description", "描述")}</label>
                     <Input
                       value={formData.description}
                       onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                      placeholder="模型描述信息"
+                      placeholder={t("settings.vectorModel.form.descriptionPlaceholder", "模型描述信息")}
                       className="h-8"
                     />
                   </div>
@@ -336,10 +363,12 @@ export default function VectorModelManager() {
 
                 <div className="mt-4 flex justify-end gap-2">
                   <Button size="sm" variant="outline" onClick={resetForm}>
-                    取消
+                    {t("common.cancel", "取消")}
                   </Button>
                   <Button size="sm" onClick={editingId ? handleEdit : handleAdd}>
-                    {editingId ? "保存" : "添加"}
+                    {editingId
+                      ? t("settings.vectorModel.action.save", "保存")
+                      : t("settings.vectorModel.action.add", "添加")}
                   </Button>
                 </div>
               </div>
@@ -348,7 +377,7 @@ export default function VectorModelManager() {
             {!showAddForm && !editingId && (
               <Button variant="outline" onClick={() => setShowAddForm(true)} className="flex w-full items-center gap-2">
                 <Plus size={16} />
-                添加模型配置
+                {t("settings.vectorModel.action.addConfig", "添加模型配置")}
               </Button>
             )}
           </>

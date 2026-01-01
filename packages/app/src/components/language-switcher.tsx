@@ -9,13 +9,30 @@ export default function LanguageSwitcher() {
   const preference = useI18nStore((s) => s.preference);
   const setPreference = useI18nStore((s) => s.setPreference);
 
-  const shortLabel = preference === "system" ? "Auto" : preference === "en" ? "EN" : "中";
-  const fullLabel =
-    preference === "system"
-      ? t("settings.language.system", "跟随系统")
-      : preference === "en"
-        ? t("settings.language.en", "英语")
-        : t("settings.language.zh", "中文");
+  const labelMap: Record<string, string> = {
+    system: t("settings.language.system", "跟随系统"),
+    zh: t("settings.language.zh", "中文"),
+    en: t("settings.language.en", "English"),
+    ja: t("settings.language.ja", "Japanese"),
+    ko: t("settings.language.ko", "Korean"),
+    es: t("settings.language.es", "Spanish"),
+    fr: t("settings.language.fr", "French"),
+    de: t("settings.language.de", "German"),
+    "pt-BR": t("settings.language.ptBR", "Portuguese (Brazil)"),
+  };
+  const shortLabelMap: Record<string, string> = {
+    system: "Auto",
+    zh: "中",
+    en: "EN",
+    ja: "JA",
+    ko: "KO",
+    es: "ES",
+    fr: "FR",
+    de: "DE",
+    "pt-BR": "PT",
+  };
+  const shortLabel = shortLabelMap[preference] || "Auto";
+  const fullLabel = labelMap[preference] || labelMap.system;
 
   return (
     <DropdownMenu>
@@ -35,7 +52,15 @@ export default function LanguageSwitcher() {
           {t("settings.language.system", "跟随系统")}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setPreference("zh")}>{t("settings.language.zh", "中文")}</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setPreference("en")}>{t("settings.language.en", "英语")}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setPreference("en")}>{t("settings.language.en", "English")}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setPreference("ja")}>{t("settings.language.ja", "Japanese")}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setPreference("ko")}>{t("settings.language.ko", "Korean")}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setPreference("es")}>{t("settings.language.es", "Spanish")}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setPreference("fr")}>{t("settings.language.fr", "French")}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setPreference("de")}>{t("settings.language.de", "German")}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setPreference("pt-BR")}>
+          {t("settings.language.ptBR", "Portuguese (Brazil)")}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
