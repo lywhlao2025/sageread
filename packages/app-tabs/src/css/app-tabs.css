@@ -205,7 +205,7 @@
 
 @media (hover: hover) {
   .chrome-tabs .chrome-tab:not([active]):hover .chrome-tab-close {
-    background: linear-gradient(to right, transparent 0%, #e6f4ea 30%, #e6f4ea 100%);
+    background: linear-gradient(to right, transparent 0%, #ffffff 30%, #ffffff 100%);
   }
 }
 .chrome-tabs .chrome-tab .chrome-tab-close::before {
