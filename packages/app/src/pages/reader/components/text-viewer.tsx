@@ -95,6 +95,13 @@ const TextViewer = ({ bookId, textContent }: TextViewerProps) => {
     };
 
     const handleSelectionChange = () => {
+      const activeElement = document.activeElement;
+      if (
+        activeElement instanceof HTMLElement &&
+        activeElement.closest(".ask-ai-popup, .selection-popup, .reader-note-popup, .reader-translate-popup")
+      ) {
+        return;
+      }
       const selection = window.getSelection();
       if (!selection || selection.rangeCount === 0) {
         if (hadTextSelection.current) {

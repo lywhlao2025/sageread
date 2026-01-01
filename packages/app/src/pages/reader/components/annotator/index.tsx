@@ -233,7 +233,7 @@ const Annotator: React.FC = () => {
       {showTranslatePopup && translatePopupPosition && (
         <div
           ref={translatePopupRef}
-          className="pointer-events-auto absolute z-50 w-[360px] max-w-[80vw] rounded-lg border border-neutral-200 bg-white p-3 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+          className="reader-translate-popup pointer-events-auto absolute z-50 w-[360px] max-w-[80vw] rounded-lg border border-neutral-200 bg-white p-3 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
           style={{
             left: `${translatePopupPosition.point.x}px`,
             top: `${translatePopupPosition.point.y}px`,
@@ -260,7 +260,7 @@ const Annotator: React.FC = () => {
 
       {noteDialogOpen && selection && annotPopupPosition && (
         <div
-          className="pointer-events-auto absolute z-50 w-[340px] rounded-lg border border-neutral-200 bg-white p-3 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+          className="reader-note-popup pointer-events-auto absolute z-50 w-[340px] rounded-lg border border-neutral-200 bg-white p-3 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
           style={{
             left: annotPopupPosition.point.x - 170,
             top: annotPopupPosition.point.y + 20,
