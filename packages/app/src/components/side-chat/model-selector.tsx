@@ -25,13 +25,24 @@ const providerIcons: Record<string, React.ComponentType<SVGProps<SVGSVGElement>>
 interface ModelSelectorProps {
   selectedModel: SelectedModel | null;
   onModelSelect: (model: SelectedModel) => void;
+  selectedTranslateModel?: SelectedModel | null;
+  onTranslateSelect?: (model: SelectedModel) => void;
   className?: string;
 }
 
-export default function ModelSelector({ selectedModel, onModelSelect, className }: ModelSelectorProps) {
+type ModelScope = "all" | "chat" | "translate";
+
+export default function ModelSelector({
+  selectedModel,
+  onModelSelect,
+  selectedTranslateModel,
+  onTranslateSelect,
+  className,
+}: ModelSelectorProps) {
   const { modelProviders } = useProviderStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [open, setOpen] = useState(false);
+  const [scope, setScope] = useState<ModelScope>("all");
 
   const availableModels = useMemo(() => {
     const models: Array<{
@@ -83,13 +94,58 @@ export default function ModelSelector({ selectedModel, onModelSelect, className 
     return groups;
   }, [filteredModels]);
 
+  const resolveSelectionLabel = () => {
+    if (scope === "chat") {
+      return selectedModel?.modelName || "选择模型";
+    }
+    if (scope === "translate") {
+      return selectedTranslateModel?.modelName || "选择模型";
+    }
+    if (selectedModel && selectedTranslateModel) {
+      if (
+        selectedModel.providerId === selectedTranslateModel.providerId &&
+        selectedModel.modelId === selectedTranslateModel.modelId
+      ) {
+        return selectedModel.modelName;
+      }
+      return "选择模型";
+    }
+    return selectedModel?.modelName || selectedTranslateModel?.modelName || "选择模型";
+  };
+
+  const resolvedSelectedModel = () => {
+    if (scope === "translate") {
+      return selectedTranslateModel;
+    }
+    if (scope === "chat") {
+      return selectedModel;
+    }
+    return selectedModel || selectedTranslateModel;
+  };
+
   const handleModelSelect = (model: (typeof filteredModels)[0]) => {
-    onModelSelect({
+    const selected: SelectedModel = {
       modelId: model.modelId,
       providerId: model.providerId,
       providerName: model.providerName,
       modelName: model.modelName,
-    });
+    };
+
+    if (scope === "translate") {
+      if (onTranslateSelect) {
+        onTranslateSelect(selected);
+      } else {
+        onModelSelect(selected);
+      }
+    } else if (scope === "chat") {
+      onModelSelect(selected);
+    } else {
+      onModelSelect(selected);
+      if (onTranslateSelect) {
+        onTranslateSelect(selected);
+      }
+    }
+
     setOpen(false);
     setSearchTerm("");
   };
@@ -98,35 +154,61 @@ export default function ModelSelector({ selectedModel, onModelSelect, className 
     return providerIcons[providerId] || null;
   };
 
-  return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>
-        <div
-          className={cn(
-            "flex h-8 w-full min-w-0 cursor-pointer select-none items-center justify-between gap-2 overflow-hidden rounded-2xl border bg-background px-3 font-normal text-sm dark:bg-neutral-800 dark:text-neutral-200 dark:hover:border-neutral-600",
-            className,
-          )}
-        >
-          <div className="flex min-w-0 items-center gap-2 truncate">
-            {selectedModel ? (
-              <>
-                {(() => {
-                  const IconComponent = getProviderIcon(selectedModel.providerId);
-                  return IconComponent ? <IconComponent className="h-4 w-4 flex-shrink-0" /> : null;
-                })()}
-                <span className="truncate text-xs" title={selectedModel.modelName}>
-                  {selectedModel.modelName}
-                </span>
-              </>
-            ) : (
-              <span className="text-muted-foreground text-xs dark:text-neutral-400">选择模型</span>
-            )}
-          </div>
-          <ChevronDown className="h-3 w-3 flex-shrink-0" />
-        </div>
-      </DropdownMenuTrigger>
+  const selectedForDisplay = resolvedSelectedModel();
+  const selectionLabel = resolveSelectionLabel();
 
-      <DropdownMenuContent className="w-64 overflow-hidden dark:border-neutral-700 dark:bg-neutral-800" align="start">
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <div className="flex h-8 cursor-pointer select-none items-center gap-1 rounded-2xl border bg-background px-2 text-xs dark:bg-neutral-800 dark:text-neutral-200 dark:hover:border-neutral-600">
+            <span className="text-muted-foreground dark:text-neutral-400">
+              {scope === "all" ? "全部" : scope === "chat" ? "对话" : "翻译"}
+            </span>
+            <ChevronDown className="h-3 w-3" />
+          </div>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-28 dark:border-neutral-700 dark:bg-neutral-800" align="start">
+          <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => setScope("all")}>
+            全部
+          </DropdownMenuItem>
+          <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => setScope("chat")}>
+            对话
+          </DropdownMenuItem>
+          <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => setScope("translate")}>
+            翻译
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <DropdownMenu open={open} onOpenChange={setOpen}>
+        <DropdownMenuTrigger asChild>
+          <div
+            className={cn(
+              "flex h-8 min-w-0 cursor-pointer select-none items-center justify-between gap-2 overflow-hidden rounded-2xl border bg-background px-3 font-normal text-sm dark:bg-neutral-800 dark:text-neutral-200 dark:hover:border-neutral-600",
+              className,
+            )}
+          >
+            <div className="flex min-w-0 items-center gap-2 truncate">
+              {selectedForDisplay ? (
+                <>
+                  {(() => {
+                    const IconComponent = getProviderIcon(selectedForDisplay.providerId);
+                    return IconComponent ? <IconComponent className="h-4 w-4 flex-shrink-0" /> : null;
+                  })()}
+                  <span className="truncate text-xs" title={selectionLabel}>
+                    {selectionLabel}
+                  </span>
+                </>
+              ) : (
+                <span className="text-muted-foreground text-xs dark:text-neutral-400">选择模型</span>
+              )}
+            </div>
+            <ChevronDown className="h-3 w-3 flex-shrink-0" />
+          </div>
+        </DropdownMenuTrigger>
+
+        <DropdownMenuContent className="w-64 overflow-hidden dark:border-neutral-700 dark:bg-neutral-800" align="start">
         <div className="p-2">
           <div className="relative">
             <Search className="absolute top-2.5 left-2 h-3 w-3 text-muted-foreground dark:text-neutral-400" />
@@ -160,7 +242,17 @@ export default function ModelSelector({ selectedModel, onModelSelect, className 
 
                 {models.map((model) => {
                   const isSelected =
-                    selectedModel?.providerId === model.providerId && selectedModel?.modelId === model.modelId;
+                    (scope === "chat" &&
+                      selectedModel?.providerId === model.providerId &&
+                      selectedModel?.modelId === model.modelId) ||
+                    (scope === "translate" &&
+                      selectedTranslateModel?.providerId === model.providerId &&
+                      selectedTranslateModel?.modelId === model.modelId) ||
+                    (scope === "all" &&
+                      ((selectedModel?.providerId === model.providerId &&
+                        selectedModel?.modelId === model.modelId) ||
+                        (selectedTranslateModel?.providerId === model.providerId &&
+                          selectedTranslateModel?.modelId === model.modelId)));
                   return (
                     <DropdownMenuItem
                       key={`${model.providerId}-${model.modelId}`}
@@ -185,7 +277,8 @@ export default function ModelSelector({ selectedModel, onModelSelect, className 
             ))
           )}
         </div>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }

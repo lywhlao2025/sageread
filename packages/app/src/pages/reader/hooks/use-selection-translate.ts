@@ -62,7 +62,7 @@ function stripSelectionEcho(text: string, original: string): string {
 }
 
 export function useSelectionTranslate(bookId?: string) {
-  const { currentModelInstance } = useModelSelector("deepseek", "deepseek-chat");
+  const { currentModelInstance } = useModelSelector("deepseek", "deepseek-chat", "translate");
   const { messages, status, error, sendMessage, setMessages, stop } = useChat(currentModelInstance || "deepseek-chat", {
     messages: [],
     chatContext: {

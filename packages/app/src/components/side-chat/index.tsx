@@ -4,6 +4,7 @@ import { useChatState } from "@/hooks/use-chat-state";
 import { useT } from "@/hooks/use-i18n";
 import { useReaderStore } from "@/pages/reader/components/reader-provider";
 import { useAppSettingsStore } from "@/store/app-settings-store";
+import { useProviderStore } from "@/store/provider-store";
 import { useThemeStore } from "@/store/theme-store";
 import {
   CircleQuestionMark,
@@ -76,6 +77,8 @@ function ChatContent({ bookId }: ChatContentProps) {
     currentThread: currentThread,
     setCurrentThread: setCurrentThread,
   });
+
+  const { selectedTranslateModel, setSelectedTranslateModel } = useProviderStore();
 
   const getVisibleContentText = () => {
     const visibleText = progress?.range?.toString?.().trim() ?? "";
@@ -173,6 +176,8 @@ function ChatContent({ bookId }: ChatContentProps) {
             <ModelSelector
               selectedModel={selectedModel}
               onModelSelect={setSelectedModel}
+              selectedTranslateModel={selectedTranslateModel}
+              onTranslateSelect={setSelectedTranslateModel}
               className="z-40 w-[12rem] flex-shrink-0"
             />
           </div>

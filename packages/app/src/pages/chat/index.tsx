@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { useChatState } from "@/hooks/use-chat-state";
 import { useAppSettingsStore } from "@/store/app-settings-store";
 import { useChatReaderStore } from "@/store/chat-reader-store";
+import { useProviderStore } from "@/store/provider-store";
 import { useThemeStore } from "@/store/theme-store";
 import {
   Brain,
@@ -180,6 +181,8 @@ function ChatPage() {
     setCurrentThread: setCurrentThread,
   });
 
+  const { selectedTranslateModel, setSelectedTranslateModel } = useProviderStore();
+
   const handleViewToolDetail = (toolPart: any) => {
     scrollContextRef.current?.stopScroll?.();
     setToolDetail(toolPart);
@@ -273,7 +276,13 @@ function ChatPage() {
               >
                 <History className="size-5" />
               </Button>
-              <ModelSelector selectedModel={selectedModel} onModelSelect={setSelectedModel} className="max-w-60" />
+              <ModelSelector
+                selectedModel={selectedModel}
+                onModelSelect={setSelectedModel}
+                selectedTranslateModel={selectedTranslateModel}
+                onTranslateSelect={setSelectedTranslateModel}
+                className="max-w-60"
+              />
             </div>
             <div className="flex items-center gap-2">
               <Button

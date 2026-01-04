@@ -14,11 +14,13 @@ export interface SelectedModel {
 interface ProviderState {
   modelProviders: ModelProvider[];
   selectedModel: SelectedModel | null;
+  selectedTranslateModel: SelectedModel | null;
   setModelProviders: (modelProviders: ModelProvider[]) => void;
   updateProvider: (providerId: string, updates: Partial<ModelProvider>) => void;
   addProvider: () => string;
   removeProvider: (providerId: string) => void;
   setSelectedModel: (model: SelectedModel | null) => void;
+  setSelectedTranslateModel: (model: SelectedModel | null) => void;
 }
 
 export const useProviderStore = create<ProviderState>()(
@@ -26,6 +28,7 @@ export const useProviderStore = create<ProviderState>()(
     (set, get) => ({
       modelProviders: predefinedProviders,
       selectedModel: null,
+      selectedTranslateModel: null,
       setModelProviders: (modelProviders: ModelProvider[]) => set({ modelProviders }),
       updateProvider: (providerId: string, updates: Partial<ModelProvider>) => {
         const { modelProviders } = get();
@@ -49,7 +52,7 @@ export const useProviderStore = create<ProviderState>()(
         return newProviderId;
       },
       removeProvider: (providerId: string) => {
-        const { modelProviders, selectedModel } = get();
+        const { modelProviders, selectedModel, selectedTranslateModel } = get();
         const updatedProviders = modelProviders.filter((provider) => provider.provider !== providerId);
 
         let newSelectedModel = selectedModel;
@@ -57,14 +60,29 @@ export const useProviderStore = create<ProviderState>()(
           newSelectedModel = null;
         }
 
-        set({ modelProviders: updatedProviders, selectedModel: newSelectedModel });
+        let newSelectedTranslateModel = selectedTranslateModel;
+        if (selectedTranslateModel && selectedTranslateModel.providerId === providerId) {
+          newSelectedTranslateModel = null;
+        }
+
+        set({
+          modelProviders: updatedProviders,
+          selectedModel: newSelectedModel,
+          selectedTranslateModel: newSelectedTranslateModel,
+        });
       },
       setSelectedModel: (selectedModel: SelectedModel | null) => set({ selectedModel }),
+      setSelectedTranslateModel: (selectedTranslateModel: SelectedModel | null) =>
+        set({ selectedTranslateModel }),
     }),
     {
       name: tauriStorageKey.modelProvider,
       storage: createJSONStorage(() => tauriStorage),
-      partialize: (state) => ({ modelProviders: state.modelProviders, selectedModel: state.selectedModel }),
+      partialize: (state) => ({
+        modelProviders: state.modelProviders,
+        selectedModel: state.selectedModel,
+        selectedTranslateModel: state.selectedTranslateModel,
+      }),
     },
   ),
 );
