@@ -43,11 +43,32 @@ pub async fn initialize(app_handle: &AppHandle) -> Result<SqlitePool, Box<dyn st
         .await?;
     println!("Database schema initialized.");
 
+    ensure_book_note_columns(&pool).await?;
+
     if is_new_db {
         initialize_default_skills(&pool).await?;
     }
 
     Ok(pool)
+}
+
+async fn ensure_book_note_columns(pool: &SqlitePool) -> Result<(), Box<dyn std::error::Error>> {
+    let statements = [
+        "ALTER TABLE book_notes ADD COLUMN section_id TEXT",
+        "ALTER TABLE book_notes ADD COLUMN norm_start INTEGER",
+        "ALTER TABLE book_notes ADD COLUMN norm_end INTEGER",
+    ];
+
+    for statement in statements {
+        if let Err(error) = sqlx::query(statement).execute(pool).await {
+            let message = error.to_string();
+            if !message.contains("duplicate column name") {
+                return Err(Box::new(error));
+            }
+        }
+    }
+
+    Ok(())
 }
 
 async fn initialize_default_skills(pool: &SqlitePool) -> Result<(), Box<dyn std::error::Error>> {

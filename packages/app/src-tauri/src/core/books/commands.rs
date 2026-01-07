@@ -811,14 +811,17 @@ pub async fn create_book_note(
         note_data.text,
         note_data.style,
         note_data.color,
+        note_data.section_id,
+        note_data.norm_start,
+        note_data.norm_end,
         note_data.note,
         note_data.context,
     );
 
     sqlx::query(
         r#"
-        INSERT INTO book_notes (id, book_id, type, cfi, text, style, color, note, context_before, context_after, created_at, updated_at)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+        INSERT INTO book_notes (id, book_id, type, cfi, text, style, color, section_id, norm_start, norm_end, note, context_before, context_after, created_at, updated_at)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
         "#
     )
     .bind(&book_note.id)
@@ -828,6 +831,9 @@ pub async fn create_book_note(
     .bind(&book_note.text)
     .bind(&book_note.style)
     .bind(&book_note.color)
+    .bind(&book_note.section_id)
+    .bind(&book_note.norm_start)
+    .bind(&book_note.norm_end)
     .bind(&book_note.note)
     .bind(&context_before)
     .bind(&context_after)
@@ -849,7 +855,7 @@ pub async fn get_book_notes(
 
     let rows = sqlx::query(
         r#"
-        SELECT id, book_id, type, cfi, text, style, color, note, context_before, context_after, created_at, updated_at
+        SELECT id, book_id, type, cfi, text, style, color, section_id, norm_start, norm_end, note, context_before, context_after, created_at, updated_at
         FROM book_notes
         WHERE book_id = ?1
         ORDER BY created_at ASC
@@ -898,6 +904,9 @@ pub async fn update_book_note(
             text = COALESCE(?, text),
             style = COALESCE(?, style),
             color = COALESCE(?, color),
+            section_id = COALESCE(?, section_id),
+            norm_start = COALESCE(?, norm_start),
+            norm_end = COALESCE(?, norm_end),
             note = COALESCE(?, note),
             context_before = COALESCE(?, context_before),
             context_after = COALESCE(?, context_after),
@@ -910,6 +919,9 @@ pub async fn update_book_note(
     .bind(&update_data.text)
     .bind(&update_data.style)
     .bind(&update_data.color)
+    .bind(&update_data.section_id)
+    .bind(&update_data.norm_start)
+    .bind(&update_data.norm_end)
     .bind(&update_data.note)
     .bind(&context_before)
     .bind(&context_after)
@@ -928,7 +940,7 @@ pub async fn update_book_note(
     // 查询更新后的笔记
     let row = sqlx::query(
         r#"
-        SELECT id, book_id, type, cfi, text, style, color, note, context_before, context_after, created_at, updated_at
+        SELECT id, book_id, type, cfi, text, style, color, section_id, norm_start, norm_end, note, context_before, context_after, created_at, updated_at
         FROM book_notes
         WHERE id = ?1
         "#

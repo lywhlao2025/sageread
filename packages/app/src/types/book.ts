@@ -49,6 +49,9 @@ export interface BookNote {
   text?: string;
   style?: HighlightStyle;
   color?: HighlightColor;
+  sectionId?: string | null;
+  normStart?: number | null;
+  normEnd?: number | null;
   note: string;
   context?: {
     before: string;

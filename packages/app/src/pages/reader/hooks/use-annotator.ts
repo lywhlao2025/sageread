@@ -1,8 +1,9 @@
 import { useNotepad } from "@/components/notepad/hooks";
 import { createBookNote, deleteBookNote, updateBookNote } from "@/services/book-note-service";
+import { createOrUpdatePublicHighlight, getPublicHighlightsDeviceId } from "@/services/public-highlights-service";
 import { iframeService } from "@/services/iframe-service";
 import { useAppSettingsStore } from "@/store/app-settings-store";
-import type { HighlightColor, HighlightStyle } from "@/types/book";
+import type { BookNote, HighlightColor, HighlightStyle } from "@/types/book";
 import type { BookMeta } from "@/types/note";
 import { type Position, type TextSelection, getPopupPosition, getPosition } from "@/utils/sel";
 import { getTargetLang } from "@/utils/misc"; // 获取环境默认的翻译目标语言
@@ -36,6 +37,16 @@ function getContextByRange(range: Range, win = 30) {
     after: squash(blockText.slice(i + highlight.length, e)),
   };
 }
+
+const getRangeTextOffset = (root: Element, container: Node, offset: number) => {
+  if (!root.contains(container)) return null;
+  const doc = root.ownerDocument;
+  if (!doc) return null;
+  const probe = doc.createRange();
+  probe.selectNodeContents(root);
+  probe.setEnd(container, offset);
+  return probe.toString().length;
+};
 
 interface UseAnnotatorProps {
   bookId: string;
@@ -76,6 +87,63 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
   const translatePopupWidth = Math.min(360, window.innerWidth - 2 * popupPadding);
   const translatePopupHeight = 220;
   const isText = bookData?.book?.format === "TXT";
+  const isPdf = bookData?.book?.format === "PDF";
+
+  const getEpubSectionInfo = useCallback(
+    (range: Range, index: number) => {
+      const doc = range.startContainer?.ownerDocument;
+      const root = doc?.body ?? doc?.documentElement;
+      if (!root) return null;
+      const startOffset = getRangeTextOffset(root, range.startContainer, range.startOffset);
+      const endOffset = getRangeTextOffset(root, range.endContainer, range.endOffset);
+      if (startOffset == null || endOffset == null) return null;
+      const sectionId = view?.book?.sections?.[index]?.id ?? bookData?.bookDoc?.sections?.[index]?.id;
+      if (!sectionId) return null;
+      const normStart = Math.min(startOffset, endOffset);
+      const normEnd = Math.max(startOffset, endOffset);
+      return { sectionId, normStart, normEnd };
+    },
+    [bookData?.bookDoc?.sections, view?.book?.sections],
+  );
+
+  const uploadPublicHighlight = useCallback(
+    async (annotation: BookNote, selectionInfo: TextSelection) => {
+      if (isPdf) {
+        return;
+      }
+      const anchorType = isText ? "txt" : "epub";
+      const deviceId = await getPublicHighlightsDeviceId();
+      const payloadBase = {
+        deviceId,
+        bookKey: bookId,
+        anchorType,
+        anchor: annotation.cfi,
+        quote: annotation.text || selectionInfo.text,
+        style: annotation.style,
+        color: annotation.color,
+      } as const;
+
+      if (anchorType === "epub") {
+        const sectionInfo = getEpubSectionInfo(selectionInfo.range, selectionInfo.index);
+        if (!sectionInfo) return;
+        await createOrUpdatePublicHighlight({
+          ...payloadBase,
+          sectionId: sectionInfo.sectionId,
+          normStart: sectionInfo.normStart,
+          normEnd: sectionInfo.normEnd,
+        });
+        return;
+      }
+
+      await createOrUpdatePublicHighlight({
+        ...payloadBase,
+        sectionId: null,
+        normStart: null,
+        normEnd: null,
+      });
+    },
+    [bookId, getEpubSectionInfo, isPdf, isText],
+  );
 
   const getTextRangeFromSelection = (range: Range): { start: number; end: number } | null => {
     const startNode = range.startContainer;
@@ -133,6 +201,7 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
           })()
         : view?.getCFI(selection.index, selection.range);
       if (!cfi) return;
+      const sectionInfo = !isText && !isPdf ? getEpubSectionInfo(selection.range, selection.index) : null;
 
       const style = settings.globalReadSettings.highlightStyle;
       const color = settings.globalReadSettings.highlightStyles[style];
@@ -149,6 +218,9 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
               color,
               text: selection.text,
               note: existingAnnotation.note,
+              sectionId: sectionInfo?.sectionId,
+              normStart: sectionInfo?.normStart,
+              normEnd: sectionInfo?.normEnd,
             });
 
             const updatedAnnotations = annotations.map((ann) =>
@@ -164,6 +236,9 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
               await store.getState().saveConfig(updatedConfig);
             }
             queryClient.invalidateQueries({ queryKey: ["annotations", bookId] });
+            void uploadPublicHighlight(updatedAnnotation, selection).catch((error) => {
+              console.warn("Failed to upload public highlight:", error);
+            });
           } else {
             await deleteBookNote(existingAnnotation.id);
             const updatedAnnotations = annotations.filter((ann) => ann.id !== existingAnnotation.id);
@@ -190,6 +265,9 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
             color,
             text: selection.text,
             note: "",
+            sectionId: sectionInfo?.sectionId,
+            normStart: sectionInfo?.normStart,
+            normEnd: sectionInfo?.normEnd,
             context: {
               before: ctx.before,
               after: ctx.after,
@@ -208,13 +286,16 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
           }
 
           queryClient.invalidateQueries({ queryKey: ["annotations", bookId] });
+          void uploadPublicHighlight(newAnnotation, selection).catch((error) => {
+            console.warn("Failed to upload public highlight:", error);
+          });
         }
       } catch (error) {
         console.error("Failed to handle highlight:", error);
         toast.error("Failed to save annotation");
       }
     },
-    [selection, config, view, settings, bookId, store, queryClient, isText],
+    [selection, config, view, settings, bookId, store, queryClient, isText, isPdf, getEpubSectionInfo, uploadPublicHighlight],
   );
 
   const addNote = useCallback(

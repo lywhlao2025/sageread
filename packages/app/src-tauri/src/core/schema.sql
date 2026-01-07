@@ -110,6 +110,9 @@ CREATE TABLE IF NOT EXISTS book_notes (
     text TEXT,                             -- 选中的文本内容
     style TEXT,                            -- 高亮样式: highlight|underline|squiggly
     color TEXT,                            -- 颜色: red|yellow|green|blue|violet
+    section_id TEXT,                       -- EPUB section href
+    norm_start INTEGER,                    -- EPUB normalized start offset
+    norm_end INTEGER,                      -- EPUB normalized end offset
     note TEXT NOT NULL,                    -- 用户笔记内容
     context_before TEXT,                   -- 前文上下文
     context_after TEXT,                    -- 后文上下文

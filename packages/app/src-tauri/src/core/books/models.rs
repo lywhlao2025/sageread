@@ -272,6 +272,12 @@ pub struct BookNote {
     pub text: Option<String>,
     pub style: Option<String>,
     pub color: Option<String>,
+    #[serde(rename = "sectionId")]
+    pub section_id: Option<String>,
+    #[serde(rename = "normStart")]
+    pub norm_start: Option<i64>,
+    #[serde(rename = "normEnd")]
+    pub norm_end: Option<i64>,
     pub note: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context: Option<serde_json::Value>,
@@ -291,6 +297,12 @@ pub struct BookNoteCreateData {
     pub text: Option<String>,
     pub style: Option<String>,
     pub color: Option<String>,
+    #[serde(rename = "sectionId")]
+    pub section_id: Option<String>,
+    #[serde(rename = "normStart")]
+    pub norm_start: Option<i64>,
+    #[serde(rename = "normEnd")]
+    pub norm_end: Option<i64>,
     pub note: String,
     pub context: Option<serde_json::Value>,
 }
@@ -303,6 +315,12 @@ pub struct BookNoteUpdateData {
     pub text: Option<String>,
     pub style: Option<String>,
     pub color: Option<String>,
+    #[serde(rename = "sectionId")]
+    pub section_id: Option<String>,
+    #[serde(rename = "normStart")]
+    pub norm_start: Option<i64>,
+    #[serde(rename = "normEnd")]
+    pub norm_end: Option<i64>,
     pub note: Option<String>,
     pub context: Option<serde_json::Value>,
 }
@@ -316,6 +334,9 @@ impl BookNote {
         text: Option<String>,
         style: Option<String>,
         color: Option<String>,
+        section_id: Option<String>,
+        norm_start: Option<i64>,
+        norm_end: Option<i64>,
         note: String,
         context: Option<serde_json::Value>,
     ) -> Self {
@@ -328,6 +349,9 @@ impl BookNote {
             text,
             style,
             color,
+            section_id,
+            norm_start,
+            norm_end,
             note,
             context,
             created_at: now,
@@ -358,6 +382,9 @@ impl BookNote {
             text: row.try_get("text")?,
             style: row.try_get("style")?,
             color: row.try_get("color")?,
+            section_id: row.try_get("section_id")?,
+            norm_start: row.try_get("norm_start")?,
+            norm_end: row.try_get("norm_end")?,
             note: row.try_get("note")?,
             context,
             created_at: row.try_get("created_at")?,

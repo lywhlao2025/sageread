@@ -9,6 +9,9 @@ export interface BookNoteCreateData {
   text?: string;
   style?: "highlight" | "underline" | "squiggly";
   color?: "red" | "yellow" | "green" | "blue" | "violet";
+  sectionId?: string | null;
+  normStart?: number | null;
+  normEnd?: number | null;
   note: string;
   context?: {
     before: string;
@@ -23,6 +26,9 @@ export interface BookNoteUpdateData {
   text?: string;
   style?: "highlight" | "underline" | "squiggly";
   color?: "red" | "yellow" | "green" | "blue" | "violet";
+  sectionId?: string | null;
+  normStart?: number | null;
+  normEnd?: number | null;
   note?: string;
   context?: {
     before: string;
