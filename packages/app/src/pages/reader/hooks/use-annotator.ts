@@ -38,10 +38,10 @@ function getContextByRange(range: Range, win = 30) {
   };
 }
 
-const getRangeTextOffset = (root: Element, container: Node, offset: number) => {
-  if (!root.contains(container)) return null;
-  const doc = root.ownerDocument;
-  if (!doc) return null;
+const getRangeTextOffset = (root: Node, container: Node, offset: number) => {
+  if (root !== container && "contains" in root && !(root as Node).contains(container)) return null;
+  const doc = container.ownerDocument ?? (root as Document);
+  if (!doc?.createRange) return null;
   const probe = doc.createRange();
   probe.selectNodeContents(root);
   probe.setEnd(container, offset);
@@ -91,8 +91,11 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
 
   const getEpubSectionInfo = useCallback(
     (range: Range, index: number) => {
-      const doc = range.startContainer?.ownerDocument;
-      const root = doc?.body ?? doc?.documentElement;
+      const rootNode = range.startContainer?.getRootNode();
+      const root =
+        rootNode instanceof Document
+          ? rootNode.body ?? rootNode.documentElement ?? rootNode
+          : rootNode ?? range.startContainer.ownerDocument?.body ?? range.startContainer.ownerDocument?.documentElement;
       if (!root) return null;
       const startOffset = getRangeTextOffset(root, range.startContainer, range.startOffset);
       const endOffset = getRangeTextOffset(root, range.endContainer, range.endOffset);
@@ -124,8 +127,18 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
       } as const;
 
       if (anchorType === "epub") {
-        const sectionInfo = getEpubSectionInfo(selectionInfo.range, selectionInfo.index);
-        if (!sectionInfo) return;
+        const sectionInfo =
+          annotation.sectionId && annotation.normStart != null && annotation.normEnd != null
+            ? {
+                sectionId: annotation.sectionId,
+                normStart: annotation.normStart,
+                normEnd: annotation.normEnd,
+              }
+            : getEpubSectionInfo(selectionInfo.range, selectionInfo.index);
+        if (!sectionInfo) {
+          console.warn("Skipping public highlight upload: missing EPUB section info.");
+          return;
+        }
         await createOrUpdatePublicHighlight({
           ...payloadBase,
           sectionId: sectionInfo.sectionId,
