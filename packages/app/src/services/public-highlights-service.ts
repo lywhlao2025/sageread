@@ -128,8 +128,8 @@ const withRetry = async <T>(fn: () => Promise<T>) => {
 const enqueueRetryJob = async (jobType: "upsert" | "delete", payload: unknown) => {
   try {
     await invoke<number>("enqueue_public_highlight_job", {
-      job_type: jobType,
-      payload_json: JSON.stringify(payload),
+      jobType,
+      payloadJson: JSON.stringify(payload),
     });
   } catch (error) {
     console.warn("Failed to enqueue public highlight job:", error);
@@ -170,6 +170,7 @@ export const startPublicHighlightRetryLoop = () => {
     try {
       if (retryLoopRunning) return;
       retryLoopRunning = true;
+      console.info("[PublicHighlights] Retry loop tick");
       const now = Date.now();
       const cutoff = now - RETRY_WINDOW_MS;
       const jobs = await invoke<RetryQueueJob[]>("get_public_highlight_retry_jobs", {
@@ -177,6 +178,11 @@ export const startPublicHighlightRetryLoop = () => {
         now,
         cutoff,
       });
+      if (!jobs.length) {
+        console.info("[PublicHighlights] No retry jobs available");
+      } else {
+        console.info(`[PublicHighlights] Processing ${jobs.length} retry job(s)`);
+      }
 
       for (const job of jobs) {
         try {
@@ -187,14 +193,16 @@ export const startPublicHighlightRetryLoop = () => {
             await requestPublicHighlightUpsert(payload);
           }
           await invoke("mark_public_highlight_job_success", { id: job.id });
+          console.info(`[PublicHighlights] Job ${job.id} succeeded`);
         } catch (error) {
           const attempts = (job.attempts ?? 0) + 1;
           await invoke("update_public_highlight_job_failure", {
             id: job.id,
             attempts,
-            next_retry_at: computeNextRetryAt(attempts),
-            last_error: error instanceof Error ? error.message : String(error),
+            nextRetryAt: computeNextRetryAt(attempts),
+            lastError: error instanceof Error ? error.message : String(error),
           });
+          console.warn(`[PublicHighlights] Job ${job.id} failed (attempt ${attempts})`);
         }
       }
     } catch (error) {
