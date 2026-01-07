@@ -1,4 +1,5 @@
 import { deleteBookNote, getBookNotes } from "@/services/book-note-service";
+import { deletePublicHighlight, getPublicHighlightsDeviceId } from "@/services/public-highlights-service";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { toast } from "sonner";
@@ -33,8 +34,36 @@ export const useAnnotations = ({ bookId }: UseAnnotationsProps = {}) => {
   const handleDeleteAnnotation = useCallback(
     async (annotationId: string) => {
       try {
+        const annotation = (annotations ?? []).find((note) => note.id === annotationId);
         await deleteBookNote(annotationId);
         toast.success("标注删除成功");
+
+        if (annotation && bookId) {
+          const anchorType = annotation.cfi.startsWith("txt:")
+            ? "txt"
+            : annotation.cfi.startsWith("pdf:")
+              ? "pdf"
+              : "epub";
+          if (anchorType !== "pdf") {
+            if (
+              anchorType === "epub" &&
+              (annotation.sectionId == null || annotation.normStart == null || annotation.normEnd == null)
+            ) {
+              console.warn("Skipping public highlight delete: missing EPUB section info.");
+            } else {
+              const deviceId = await getPublicHighlightsDeviceId();
+              await deletePublicHighlight({
+                deviceId,
+                bookKey: bookId,
+                anchorType,
+                anchor: annotation.cfi,
+                sectionId: annotation.sectionId ?? null,
+                normStart: annotation.normStart ?? null,
+                normEnd: annotation.normEnd ?? null,
+              });
+            }
+          }
+        }
 
         // 刷新标注列表
         queryClient.invalidateQueries({ queryKey: ["annotations", bookId] });
@@ -44,7 +73,7 @@ export const useAnnotations = ({ bookId }: UseAnnotationsProps = {}) => {
         throw error;
       }
     },
-    [queryClient, bookId],
+    [annotations, queryClient, bookId],
   );
 
   return {

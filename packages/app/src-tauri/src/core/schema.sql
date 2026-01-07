@@ -129,6 +129,20 @@ CREATE INDEX IF NOT EXISTS idx_book_notes_type ON book_notes(type);
 CREATE INDEX IF NOT EXISTS idx_book_notes_created_at ON book_notes(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_book_notes_cfi ON book_notes(cfi);
 
+-- public_highlight_retry_queue 表 - 存储公共高亮重试任务
+CREATE TABLE IF NOT EXISTS public_highlight_retry_queue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_type TEXT NOT NULL,               -- upsert|delete
+    payload_json TEXT NOT NULL,           -- JSON payload
+    attempts INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT,
+    created_at INTEGER NOT NULL,
+    next_retry_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_public_highlight_retry_next ON public_highlight_retry_queue(next_retry_at);
+CREATE INDEX IF NOT EXISTS idx_public_highlight_retry_created ON public_highlight_retry_queue(created_at DESC);
+
 -- 技能库表 - 存储 AI 技能的标准操作流程
 CREATE TABLE IF NOT EXISTS skills (
     id TEXT PRIMARY KEY NOT NULL,

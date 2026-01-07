@@ -31,6 +31,10 @@ use crate::core::{
         list_local_models, llama_server_binary_name_cmd,
     },
     notes::commands::{create_note, delete_note, get_note_by_id, get_notes, update_note},
+    public_highlights::commands::{
+        enqueue_public_highlight_job, get_public_highlight_retry_jobs,
+        mark_public_highlight_job_success, update_public_highlight_job_failure,
+    },
     skills::commands::{
         create_skill, delete_skill, get_skill_by_id, get_skills, toggle_skill_active,
         update_skill,
@@ -175,6 +179,11 @@ pub fn run() {
             list_local_models,
             download_model_file,
             delete_local_model,
+            // public highlights retry queue
+            enqueue_public_highlight_job,
+            get_public_highlight_retry_jobs,
+            mark_public_highlight_job_success,
+            update_public_highlight_job_failure,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {

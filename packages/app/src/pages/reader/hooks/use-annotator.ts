@@ -1,6 +1,10 @@
 import { useNotepad } from "@/components/notepad/hooks";
 import { createBookNote, deleteBookNote, updateBookNote } from "@/services/book-note-service";
-import { createOrUpdatePublicHighlight, getPublicHighlightsDeviceId } from "@/services/public-highlights-service";
+import {
+  createOrUpdatePublicHighlight,
+  deletePublicHighlight,
+  getPublicHighlightsDeviceId,
+} from "@/services/public-highlights-service";
 import { iframeService } from "@/services/iframe-service";
 import { useAppSettingsStore } from "@/store/app-settings-store";
 import type { BookNote, HighlightColor, HighlightStyle } from "@/types/book";
@@ -158,6 +162,45 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
     [bookId, getEpubSectionInfo, isPdf, isText],
   );
 
+  const removePublicHighlight = useCallback(
+    async (annotation: BookNote, selectionInfo?: TextSelection) => {
+      if (isPdf) {
+        return;
+      }
+      const anchorType = isText ? "txt" : "epub";
+      const deviceId = await getPublicHighlightsDeviceId();
+      let sectionInfo: { sectionId: string; normStart: number; normEnd: number } | null = null;
+
+      if (anchorType === "epub") {
+        sectionInfo =
+          annotation.sectionId && annotation.normStart != null && annotation.normEnd != null
+            ? {
+                sectionId: annotation.sectionId,
+                normStart: annotation.normStart,
+                normEnd: annotation.normEnd,
+              }
+            : selectionInfo
+              ? getEpubSectionInfo(selectionInfo.range, selectionInfo.index)
+              : null;
+        if (!sectionInfo) {
+          console.warn("Skipping public highlight delete: missing EPUB section info.");
+          return;
+        }
+      }
+
+      await deletePublicHighlight({
+        deviceId,
+        bookKey: bookId,
+        anchorType,
+        anchor: annotation.cfi,
+        sectionId: sectionInfo?.sectionId ?? null,
+        normStart: sectionInfo?.normStart ?? null,
+        normEnd: sectionInfo?.normEnd ?? null,
+      });
+    },
+    [bookId, getEpubSectionInfo, isPdf, isText],
+  );
+
   const getTextRangeFromSelection = (range: Range): { start: number; end: number } | null => {
     const startNode = range.startContainer;
     const endNode = range.endContainer;
@@ -267,6 +310,9 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
             }
 
             queryClient.invalidateQueries({ queryKey: ["annotations", bookId] });
+            void removePublicHighlight(existingAnnotation, selection).catch((error) => {
+              console.warn("Failed to delete public highlight:", error);
+            });
           }
         } else {
           const ctx = getContextByRange(selection.range, 50);
@@ -308,7 +354,20 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
         toast.error("Failed to save annotation");
       }
     },
-    [selection, config, view, settings, bookId, store, queryClient, isText, isPdf, getEpubSectionInfo, uploadPublicHighlight],
+    [
+      selection,
+      config,
+      view,
+      settings,
+      bookId,
+      store,
+      queryClient,
+      isText,
+      isPdf,
+      getEpubSectionInfo,
+      uploadPublicHighlight,
+      removePublicHighlight,
+    ],
   );
 
   const addNote = useCallback(
