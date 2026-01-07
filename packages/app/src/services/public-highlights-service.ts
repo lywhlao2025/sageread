@@ -15,8 +15,8 @@ export interface PublicHighlightRequest {
   normEnd?: number | null;
 }
 
-const PUBLIC_HIGHLIGHTS_BASE_URL = "http://127.0.0.1:8787";
-const PUBLIC_HIGHLIGHTS_API_BASE = `${PUBLIC_HIGHLIGHTS_BASE_URL}/api/public-highlights`;
+const PUBLIC_HIGHLIGHTS_BASE_URL = "http://localhost:8080";
+const PUBLIC_HIGHLIGHTS_API_BASE = `${PUBLIC_HIGHLIGHTS_BASE_URL}/api/public-highlights/upsert`;
 const DEVICE_ID_KEY = "sageread-public-highlights-device-id";
 
 const createDeviceId = () => {
