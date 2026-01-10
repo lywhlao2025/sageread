@@ -788,6 +788,23 @@ export class Paginator extends HTMLElement {
   get pages() {
     return Math.round(this.viewSize / this.size);
   }
+  getVisibleRange() {
+    return this.#lastVisibleRange ?? this.#getVisibleRange();
+  }
+  getVisibleRangeForOffset(offset = 0) {
+    if (!this.#view) return null;
+    const start = this.start + this.size * offset;
+    const end = start + this.size;
+    if (this.scrolled)
+      return getVisibleRange(
+        this.#view.document,
+        start + this.#margin,
+        end - this.#margin,
+        this.#getRectMapper(),
+      );
+    const size = this.#rtl ? -this.size : this.size;
+    return getVisibleRange(this.#view.document, start - size, end - size, this.#getRectMapper());
+  }
   scrollBy(dx, dy) {
     const delta = this.#vertical ? dy : dx;
     const element = this.#container;

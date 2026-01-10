@@ -189,6 +189,18 @@ sequenceDiagram
 5) 阅读会话统计：
    - `use-reading-session` 监听用户/iframe 事件，空闲自动暂停/结束；定时 `updateReadingSession` 写入 `reading_sessions`，结束时 `completeReadingSession`。
 
+### 5.3 公共标注提示（Public Highlights）
+- **接口**：前端使用 `/api/public-highlights/list-batch` 获取当前页范围的公共标注。
+- **缓存**：按 `bookKey + sectionId + normStart + normEnd` 作为缓存 key，TTL 3 小时。
+- **翻页策略**：
+  - 当前页范围必请求（缓存未命中时）。
+  - 预加载下一页与下下一页（N+1/N+2），仅在缓存未命中时发起请求。
+  - 预加载所需 `sectionId + normStart/normEnd` 通过 paginator 获取当前页之后的 range。
+- **稳定性兜底**：
+  - section 切换时可能先拿不到准确 range，监听 `foliate-layout-stable` 事件后强制刷新一次。
+- **显示速度优化**：
+  - 强制刷新（layout stable）走 0ms 延迟，确保波浪线尽快显示。
+
 #### 打开阅读器调用链
 ```mermaid
 sequenceDiagram

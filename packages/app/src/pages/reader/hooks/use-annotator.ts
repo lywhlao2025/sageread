@@ -4,7 +4,9 @@ import {
   createOrUpdatePublicHighlight,
   deletePublicHighlight,
   getPublicHighlightsDeviceId,
-  listPublicHighlightsBatch,
+  getCachedPublicHighlights,
+  listPublicHighlightsBatchCached,
+  prefetchPublicHighlightsBatch,
   type PublicHighlightResponse,
 } from "@/services/public-highlights-service";
 import { iframeService } from "@/services/iframe-service";
@@ -161,9 +163,33 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
   const syncPublicHighlights = useCallback(
     (highlights: PublicHighlightResponse[]) => {
       if (!view) return;
+      const localRanges = (config.booknotes ?? [])
+        .filter((note) => !note.deletedAt && note.type === "annotation")
+        .map((note) => ({
+          sectionId: note.sectionId,
+          normStart: note.normStart,
+          normEnd: note.normEnd,
+        }))
+        .filter(
+          (note): note is { sectionId: string; normStart: number; normEnd: number } =>
+            Boolean(note.sectionId) && note.normStart != null && note.normEnd != null,
+        );
       const next = new Map<string, BookNote>();
       for (const highlight of highlights) {
         if (highlight.anchorType !== "epub") continue;
+        if (
+          highlight.sectionId &&
+          highlight.normStart != null &&
+          highlight.normEnd != null &&
+          localRanges.some(
+            (note) =>
+              note.sectionId === highlight.sectionId &&
+              highlight.normEnd >= note.normStart &&
+              highlight.normStart <= note.normEnd,
+          )
+        ) {
+          continue;
+        }
         const note = buildPublicHighlightNote(highlight, highlight.anchor);
         next.set(note.id, note);
         if (!publicHighlightsRef.current.has(note.id)) {
@@ -179,7 +205,7 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
 
       publicHighlightsRef.current = next;
     },
-    [buildPublicHighlightNote, view],
+    [buildPublicHighlightNote, config.booknotes, view],
   );
 
   const getEpubSectionIndexForRange = useCallback(
@@ -195,6 +221,17 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
       return null;
     },
     [view],
+  );
+
+  const getEpubRangeInfoByOffset = useCallback(
+    (offset: number) => {
+      const range = view?.renderer?.getVisibleRangeForOffset?.(offset);
+      if (!range) return null;
+      const sectionIndex = getEpubSectionIndexForRange(range);
+      if (sectionIndex == null) return null;
+      return getEpubSectionInfo(range, sectionIndex);
+    },
+    [getEpubSectionIndexForRange, getEpubSectionInfo, view],
   );
 
   const uploadPublicHighlight = useCallback(
@@ -667,37 +704,91 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [progress, isText]);
 
-  useEffect(() => {
-    if (!progress?.range || isText || isPdf || !view) return;
-    const sectionIndex = getEpubSectionIndexForRange(progress.range);
-    if (sectionIndex == null) return;
-    const sectionInfo = getEpubSectionInfo(progress.range, sectionIndex);
-    const sectionId = sectionInfo?.sectionId || progress.sectionHref;
-    const offsets = getEpubSectionOffsets(progress.range);
-    if (!sectionId || !offsets) return;
+  const refreshPublicHighlights = useCallback(
+    (force = false) => {
+      if (!progress?.range || isText || isPdf || !view) return;
+      const visibleRange = view.renderer?.getVisibleRange?.() ?? progress.range;
+      if (!visibleRange) return;
+      const fallbackIndex =
+        typeof progress.section === "number" && progress.section >= 0 ? progress.section : null;
+      const sectionIndex = getEpubSectionIndexForRange(visibleRange) ?? fallbackIndex;
+      if (sectionIndex == null) return;
+      const sectionInfo = getEpubSectionInfo(visibleRange, sectionIndex);
+      const sectionId =
+        sectionInfo?.sectionId ||
+        progress.sectionHref ||
+        view?.book?.sections?.[sectionIndex]?.id ||
+        null;
+      const offsets = getEpubSectionOffsets(visibleRange);
+      if (!sectionId || !offsets) return;
 
-    const rangeKey = `${sectionId}|${offsets.normStart}|${offsets.normEnd}`;
-    if (publicHighlightRangeKey.current === rangeKey) return;
-    publicHighlightRangeKey.current = rangeKey;
+      const rangeKey = `${sectionId}|${offsets.normStart}|${offsets.normEnd}`;
+      if (!force && publicHighlightRangeKey.current === rangeKey) return;
+      publicHighlightRangeKey.current = rangeKey;
 
-    const requestId = (publicHighlightRequestId.current += 1);
-    const timeout = window.setTimeout(async () => {
-      try {
-        const highlights = await listPublicHighlightsBatch({
-          bookKey: bookId,
-          anchorType: "epub",
-          ranges: [`section|${sectionId}|${offsets.normStart}|${offsets.normEnd}`],
-        });
-        if (publicHighlightRequestId.current !== requestId) return;
-        syncPublicHighlights(highlights);
-      } catch (error) {
-        console.warn("Failed to load public highlights:", error);
+      const currentRange = `section|${sectionId}|${offsets.normStart}|${offsets.normEnd}`;
+      const cached = getCachedPublicHighlights({
+        bookKey: bookId,
+        anchorType: "epub",
+        ranges: [currentRange],
+      });
+      if (cached.length) {
+        syncPublicHighlights(cached);
       }
-    }, 200);
+      const needsPrefetch = !force;
+      const requestId = (publicHighlightRequestId.current += 1);
+      const delay = force ? 0 : 200;
+      window.setTimeout(async () => {
+        try {
+          const highlights = await listPublicHighlightsBatchCached({
+            bookKey: bookId,
+            anchorType: "epub",
+            ranges: [currentRange],
+          });
+          if (publicHighlightRequestId.current !== requestId) return;
+          syncPublicHighlights(highlights);
 
-    return () => window.clearTimeout(timeout);
+          if (needsPrefetch) {
+            const nextRanges = [1, 2]
+              .map((offset) => getEpubRangeInfoByOffset(offset))
+              .filter((info): info is { sectionId: string; normStart: number; normEnd: number } => Boolean(info))
+              .map((info) => `section|${info.sectionId}|${info.normStart}|${info.normEnd}`)
+              .filter((range) => range !== currentRange);
+
+            if (nextRanges.length) {
+              prefetchPublicHighlightsBatch({
+                bookKey: bookId,
+                anchorType: "epub",
+                ranges: nextRanges,
+              });
+            }
+          }
+        } catch (error) {
+          console.warn("Failed to load public highlights:", error);
+        }
+      }, delay);
+    },
+    [
+      bookId,
+      getEpubRangeInfoByOffset,
+      getEpubSectionIndexForRange,
+      getEpubSectionInfo,
+      getEpubSectionOffsets,
+      isPdf,
+      isText,
+      progress?.range,
+      progress?.section,
+      progress?.sectionHref,
+      syncPublicHighlights,
+      view,
+    ],
+  );
+
+  useEffect(() => {
+    refreshPublicHighlights(false);
   }, [
     bookId,
+    getEpubRangeInfoByOffset,
     getEpubSectionIndexForRange,
     getEpubSectionInfo,
     getEpubSectionOffsets,
@@ -706,9 +797,23 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
     progress?.location,
     progress?.range,
     progress?.sectionHref,
+    progress?.section,
+    refreshPublicHighlights,
     syncPublicHighlights,
     view,
   ]);
+
+  useEffect(() => {
+    if (!view || isText || isPdf) return;
+    const handleStable = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (!detail?.bookIds || !Array.isArray(detail.bookIds)) return;
+      if (!detail.bookIds.includes(bookId)) return;
+      refreshPublicHighlights(true);
+    };
+    window.addEventListener("foliate-layout-stable", handleStable);
+    return () => window.removeEventListener("foliate-layout-stable", handleStable);
+  }, [bookId, isPdf, isText, refreshPublicHighlights, view]);
 
   return {
     // 状态

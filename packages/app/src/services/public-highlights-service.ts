@@ -50,7 +50,7 @@ interface RetryQueueJob {
   next_retry_at: number;
 }
 
-const PUBLIC_HIGHLIGHTS_BASE_URL = "http://localhost:8080";
+const PUBLIC_HIGHLIGHTS_BASE_URL = "http://121.199.24.2:8080";
 const PUBLIC_HIGHLIGHTS_API_BASE = `${PUBLIC_HIGHLIGHTS_BASE_URL}/api/public-highlights/upsert`;
 const PUBLIC_HIGHLIGHTS_DELETE_URL = `${PUBLIC_HIGHLIGHTS_BASE_URL}/api/public-highlights/delete`;
 const PUBLIC_HIGHLIGHTS_LIST_BATCH_URL = `${PUBLIC_HIGHLIGHTS_BASE_URL}/api/public-highlights/list-batch`;
@@ -60,6 +60,10 @@ const RETRY_BASE_DELAY_MS = 500;
 const RETRY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const DEV_RETRY_INTERVAL_MS = 60_000;
 const PROD_RETRY_INTERVAL_MS = 30 * 60_000;
+const PUBLIC_HIGHLIGHTS_CACHE_TTL_MS = 3 * 60 * 60 * 1000;
+const PUBLIC_HIGHLIGHTS_CACHE_PREFIX = "sageread-public-highlights-cache";
+
+const publicHighlightsCache = new Map<string, { expiresAt: number; data: PublicHighlightResponse[] }>();
 
 let retryLoopStarted = false;
 let retryLoopRunning = false;
@@ -70,6 +74,67 @@ const createDeviceId = () => {
     return cryptoObj.randomUUID() as string;
   }
   return `device-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
+const buildCacheKey = (bookKey: string, anchorType: PublicHighlightAnchorType, range: string) =>
+  `${PUBLIC_HIGHLIGHTS_CACHE_PREFIX}:${bookKey}:${anchorType}:${range}`;
+
+const loadCachedHighlights = (cacheKey: string) => {
+  const now = Date.now();
+  const entry = publicHighlightsCache.get(cacheKey);
+  if (entry && entry.expiresAt > now) {
+    return entry.data;
+  }
+  if (entry) {
+    publicHighlightsCache.delete(cacheKey);
+  }
+  if (typeof localStorage === "undefined") {
+    return null;
+  }
+  const raw = localStorage.getItem(cacheKey);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { expiresAt: number; data: PublicHighlightResponse[] };
+    if (!parsed || parsed.expiresAt <= now) {
+      localStorage.removeItem(cacheKey);
+      return null;
+    }
+    publicHighlightsCache.set(cacheKey, parsed);
+    return parsed.data;
+  } catch {
+    localStorage.removeItem(cacheKey);
+    return null;
+  }
+};
+
+const saveCachedHighlights = (cacheKey: string, data: PublicHighlightResponse[]) => {
+  const entry = { expiresAt: Date.now() + PUBLIC_HIGHLIGHTS_CACHE_TTL_MS, data };
+  publicHighlightsCache.set(cacheKey, entry);
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(cacheKey, JSON.stringify(entry));
+  } catch {
+    // ignore storage errors
+  }
+};
+
+const parseEpubRange = (range: string) => {
+  const [type, sectionId, startRaw, endRaw] = range.split("|");
+  if (type !== "section" || !sectionId) return null;
+  const start = Number(startRaw);
+  const end = Number(endRaw);
+  if (Number.isNaN(start) || Number.isNaN(end)) return null;
+  return { sectionId, start, end };
+};
+
+const filterHighlightsForRange = (highlights: PublicHighlightResponse[], range: string) => {
+  const parsed = parseEpubRange(range);
+  if (!parsed) return highlights;
+  return highlights.filter((highlight) => {
+    if (!highlight.sectionId || highlight.sectionId !== parsed.sectionId) return false;
+    if (highlight.normStart == null || highlight.normEnd == null) return false;
+    return highlight.normEnd >= parsed.start && highlight.normStart <= parsed.end;
+  });
 };
 
 export const getPublicHighlightsDeviceId = async () => {
@@ -205,6 +270,107 @@ export const listPublicHighlightsBatch = (params: {
   ranges: string[];
 }) => {
   return requestPublicHighlightsBatch(params);
+};
+
+export const listPublicHighlightsBatchCached = async (params: {
+  bookKey: string;
+  anchorType: PublicHighlightAnchorType;
+  ranges: string[];
+}) => {
+  const uniqueRanges = Array.from(new Set(params.ranges ?? []));
+  if (!uniqueRanges.length) return [];
+
+  const highlights: PublicHighlightResponse[] = [];
+  const seen = new Set<number>();
+  const missing: string[] = [];
+
+  for (const range of uniqueRanges) {
+    const cacheKey = buildCacheKey(params.bookKey, params.anchorType, range);
+    const cached = loadCachedHighlights(cacheKey);
+    if (cached) {
+      for (const item of cached) {
+        if (!seen.has(item.id)) {
+          seen.add(item.id);
+          highlights.push(item);
+        }
+      }
+    } else {
+      missing.push(range);
+    }
+  }
+
+  if (!missing.length) return highlights;
+
+  const fetched = await requestPublicHighlightsBatch({
+    bookKey: params.bookKey,
+    anchorType: params.anchorType,
+    ranges: missing,
+  });
+
+  for (const range of missing) {
+    const filtered = filterHighlightsForRange(fetched, range);
+    const cacheKey = buildCacheKey(params.bookKey, params.anchorType, range);
+    saveCachedHighlights(cacheKey, filtered);
+    for (const item of filtered) {
+      if (!seen.has(item.id)) {
+        seen.add(item.id);
+        highlights.push(item);
+      }
+    }
+  }
+
+  return highlights;
+};
+
+export const getCachedPublicHighlights = (params: {
+  bookKey: string;
+  anchorType: PublicHighlightAnchorType;
+  ranges: string[];
+}) => {
+  const uniqueRanges = Array.from(new Set(params.ranges ?? []));
+  if (!uniqueRanges.length) return [];
+  const highlights: PublicHighlightResponse[] = [];
+  const seen = new Set<number>();
+  for (const range of uniqueRanges) {
+    const cacheKey = buildCacheKey(params.bookKey, params.anchorType, range);
+    const cached = loadCachedHighlights(cacheKey);
+    if (!cached) continue;
+    for (const item of cached) {
+      if (!seen.has(item.id)) {
+        seen.add(item.id);
+        highlights.push(item);
+      }
+    }
+  }
+  return highlights;
+};
+
+export const prefetchPublicHighlightsBatch = async (params: {
+  bookKey: string;
+  anchorType: PublicHighlightAnchorType;
+  ranges: string[];
+}) => {
+  const uniqueRanges = Array.from(new Set(params.ranges ?? []));
+  const missing = uniqueRanges.filter((range) => {
+    const cacheKey = buildCacheKey(params.bookKey, params.anchorType, range);
+    return !loadCachedHighlights(cacheKey);
+  });
+  if (!missing.length) return;
+
+  try {
+    const fetched = await requestPublicHighlightsBatch({
+      bookKey: params.bookKey,
+      anchorType: params.anchorType,
+      ranges: missing,
+    });
+    for (const range of missing) {
+      const filtered = filterHighlightsForRange(fetched, range);
+      const cacheKey = buildCacheKey(params.bookKey, params.anchorType, range);
+      saveCachedHighlights(cacheKey, filtered);
+    }
+  } catch (error) {
+    console.warn("Failed to prefetch public highlights:", error);
+  }
 };
 
 const computeNextRetryAt = (attempts: number) => {
