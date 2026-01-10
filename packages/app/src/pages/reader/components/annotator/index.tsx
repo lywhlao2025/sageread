@@ -18,6 +18,45 @@ import { useReaderStore, useReaderStoreApi } from "../reader-provider";
 import AnnotationPopup from "./annotation-popup";
 import AskAIPopup from "./ask-ai-popup";
 
+const createSvgElement = (doc: Document, tag: string) => doc.createElementNS("http://www.w3.org/2000/svg", tag);
+
+const drawDashedUnderline = (
+  rects: DOMRectList | Array<DOMRect>,
+  options: { color?: string; width?: number; writingMode?: string; padding?: number },
+) => {
+  const { color = "currentColor", width = 1.5, writingMode, padding = 0 } = options;
+  const g = createSvgElement(document, "g");
+  g.setAttribute("fill", "none");
+  g.setAttribute("stroke", color);
+  g.setAttribute("stroke-width", String(width));
+  g.setAttribute("stroke-linecap", "round");
+  g.setAttribute("stroke-linejoin", "round");
+  g.setAttribute("stroke-dasharray", `${width * 2},${width * 2}`);
+
+  const isVertical = writingMode === "vertical-rl" || writingMode === "vertical-lr";
+
+  for (const rect of Array.from(rects)) {
+    if (isVertical) {
+      const height = rect.height;
+      const x = rect.right - padding - width / 2;
+      const y = rect.top;
+      const ls = `l0 ${height}`;
+      const path = createSvgElement(document, "path");
+      path.setAttribute("d", `M${x} ${y}${ls}`);
+      g.append(path);
+    } else {
+      const x = rect.left;
+      const y = rect.bottom - padding;
+      const ls = `l${rect.width} 0`;
+      const path = createSvgElement(document, "path");
+      path.setAttribute("d", `M${x} ${y}${ls}`);
+      g.append(path);
+    }
+  }
+
+  return g;
+};
+
 const Annotator: React.FC = () => {
   const { settings } = useAppSettingsStore();
   const store = useReaderStoreApi();
@@ -94,13 +133,22 @@ const Annotator: React.FC = () => {
       const { defaultView } = doc;
       const node = range.startContainer;
       const el = node.nodeType === 1 ? node : node.parentElement;
+      const fallbackColor =
+        hexColor ?? (el ? defaultView.getComputedStyle(el).color : defaultView.getComputedStyle(doc.body).color);
       const { writingMode, lineHeight, fontSize } = defaultView.getComputedStyle(el);
       const lineHeightValue =
         Number.parseFloat(lineHeight) || globalViewSettings?.lineHeight! * globalViewSettings?.defaultFontSize!;
       const fontSizeValue = Number.parseFloat(fontSize) || globalViewSettings?.defaultFontSize;
       const strokeWidth = 2;
       const padding = globalViewSettings?.vertical ? (lineHeightValue - fontSizeValue! - strokeWidth) / 2 : strokeWidth;
-      draw(Overlayer[style as keyof typeof Overlayer], { writingMode, color: hexColor, padding });
+      const isPublicHighlight = typeof annotation.id === "string" && annotation.id.startsWith("public-");
+      if (style === "squiggly" && isPublicHighlight) {
+        draw(drawDashedUnderline, { writingMode, color: "#9CA3AF", width: 1.5, padding });
+      } else if (style === "squiggly") {
+        draw(Overlayer.squiggly, { writingMode, color: fallbackColor, padding });
+      } else {
+        draw(Overlayer.underline, { writingMode, color: fallbackColor, padding });
+      }
     }
   };
 

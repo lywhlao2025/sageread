@@ -26,6 +26,21 @@ export interface PublicHighlightDeleteRequest {
   normEnd?: number | null;
 }
 
+export interface PublicHighlightResponse {
+  id: number;
+  bookKey: string;
+  anchorType: PublicHighlightAnchorType;
+  anchor: string;
+  sectionId?: string | null;
+  normStart?: number | null;
+  normEnd?: number | null;
+  quote?: string | null;
+  style?: string | null;
+  color?: string | null;
+  createdAt?: number | null;
+  updatedAt?: number | null;
+}
+
 interface RetryQueueJob {
   id: number;
   job_type: string;
@@ -38,6 +53,7 @@ interface RetryQueueJob {
 const PUBLIC_HIGHLIGHTS_BASE_URL = "http://localhost:8080";
 const PUBLIC_HIGHLIGHTS_API_BASE = `${PUBLIC_HIGHLIGHTS_BASE_URL}/api/public-highlights/upsert`;
 const PUBLIC_HIGHLIGHTS_DELETE_URL = `${PUBLIC_HIGHLIGHTS_BASE_URL}/api/public-highlights/delete`;
+const PUBLIC_HIGHLIGHTS_LIST_BATCH_URL = `${PUBLIC_HIGHLIGHTS_BASE_URL}/api/public-highlights/list-batch`;
 const DEVICE_ID_KEY = "sageread-public-highlights-device-id";
 const RETRY_MAX_ATTEMPTS = 3;
 const RETRY_BASE_DELAY_MS = 500;
@@ -107,6 +123,35 @@ const requestPublicHighlightDelete = async (payload: PublicHighlightDeleteReques
   }
 };
 
+const requestPublicHighlightsBatch = async (params: {
+  bookKey: string;
+  anchorType: PublicHighlightAnchorType;
+  ranges: string[];
+}) => {
+  const searchParams = new URLSearchParams({
+    bookKey: params.bookKey,
+    anchorType: params.anchorType,
+  });
+  for (const range of params.ranges) {
+    searchParams.append("ranges", range);
+  }
+
+  const response = await fetchWithTimeout(
+    `${PUBLIC_HIGHLIGHTS_LIST_BATCH_URL}?${searchParams.toString()}`,
+    {
+      method: "GET",
+    },
+    10000,
+  );
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || "Public highlight list batch failed");
+  }
+
+  return response.json() as Promise<PublicHighlightResponse[]>;
+};
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const withRetry = async <T>(fn: () => Promise<T>) => {
@@ -152,6 +197,14 @@ export const deletePublicHighlight = async (payload: PublicHighlightDeleteReques
     await enqueueRetryJob("delete", payload);
     throw error;
   }
+};
+
+export const listPublicHighlightsBatch = (params: {
+  bookKey: string;
+  anchorType: PublicHighlightAnchorType;
+  ranges: string[];
+}) => {
+  return requestPublicHighlightsBatch(params);
 };
 
 const computeNextRetryAt = (attempts: number) => {

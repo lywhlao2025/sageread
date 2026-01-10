@@ -4,6 +4,8 @@ import {
   createOrUpdatePublicHighlight,
   deletePublicHighlight,
   getPublicHighlightsDeviceId,
+  listPublicHighlightsBatch,
+  type PublicHighlightResponse,
 } from "@/services/public-highlights-service";
 import { iframeService } from "@/services/iframe-service";
 import { useAppSettingsStore } from "@/store/app-settings-store";
@@ -14,7 +16,7 @@ import { getTargetLang } from "@/utils/misc"; // 获取环境默认的翻译目�
 import { useLocale, useT } from "@/hooks/use-i18n";
 import { useQueryClient } from "@tanstack/react-query";
 import * as CFI from "foliate-js/epubcfi.js";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useReaderStore, useReaderStoreApi } from "../components/reader-provider";
 import { buildTextRangeCfi } from "../utils/text-toc";
@@ -84,6 +86,9 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
   const [selectedColor, setSelectedColor] = useState<HighlightColor>(
     settings.globalReadSettings.highlightStyles[selectedStyle],
   );
+  const publicHighlightsRef = useRef<Map<string, BookNote>>(new Map());
+  const publicHighlightRequestId = useRef(0);
+  const publicHighlightRangeKey = useRef<string | null>(null);
 
   const popupPadding = 10;
   const annotPopupWidth = Math.min(globalViewSettings?.vertical ? 320 : 390, window.innerWidth - 2 * popupPadding);
@@ -111,6 +116,85 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
       return { sectionId, normStart, normEnd };
     },
     [bookData?.bookDoc?.sections, view?.book?.sections],
+  );
+
+  const getEpubSectionOffsets = useCallback((range: Range) => {
+    const rootNode = range.startContainer?.getRootNode();
+    const root =
+      rootNode instanceof Document
+        ? rootNode.body ?? rootNode.documentElement ?? rootNode
+        : rootNode ?? range.startContainer.ownerDocument?.body ?? range.startContainer.ownerDocument?.documentElement;
+    if (!root) return null;
+    const startOffset = getRangeTextOffset(root, range.startContainer, range.startOffset);
+    const endOffset = getRangeTextOffset(root, range.endContainer, range.endOffset);
+    if (startOffset == null || endOffset == null) return null;
+    const normStart = Math.min(startOffset, endOffset);
+    const normEnd = Math.max(startOffset, endOffset);
+    return { normStart, normEnd };
+  }, []);
+
+  const buildPublicHighlightNote = useCallback(
+    (highlight: PublicHighlightResponse, cfiOverride?: string): BookNote => {
+      const now = Date.now();
+      const normStart = highlight.normStart ?? null;
+      const normEnd = highlight.normEnd ?? null;
+      const cfi = cfiOverride ?? highlight.anchor;
+
+      return {
+        id: `public-${highlight.id}`,
+        key: `public-${highlight.id}`,
+        type: "annotation",
+        cfi,
+        text: highlight.quote ?? "",
+        style: "squiggly",
+        sectionId: highlight.sectionId ?? null,
+        normStart,
+        normEnd,
+        note: "",
+        createdAt: highlight.createdAt ?? now,
+        updatedAt: highlight.updatedAt ?? now,
+      };
+    },
+    [],
+  );
+
+  const syncPublicHighlights = useCallback(
+    (highlights: PublicHighlightResponse[]) => {
+      if (!view) return;
+      const next = new Map<string, BookNote>();
+      for (const highlight of highlights) {
+        if (highlight.anchorType !== "epub") continue;
+        const note = buildPublicHighlightNote(highlight, highlight.anchor);
+        next.set(note.id, note);
+        if (!publicHighlightsRef.current.has(note.id)) {
+          view.addAnnotation(note);
+        }
+      }
+
+      for (const [id, note] of publicHighlightsRef.current) {
+        if (!next.has(id)) {
+          view.addAnnotation(note, true);
+        }
+      }
+
+      publicHighlightsRef.current = next;
+    },
+    [buildPublicHighlightNote, view],
+  );
+
+  const getEpubSectionIndexForRange = useCallback(
+    (range: Range) => {
+      const doc = range.startContainer?.ownerDocument ?? range.endContainer?.ownerDocument;
+      if (!doc || !view?.renderer?.getContents) return null;
+      const contents = view.renderer.getContents();
+      for (const entry of contents) {
+        if (entry.doc === doc && typeof entry.index === "number") {
+          return entry.index;
+        }
+      }
+      return null;
+    },
+    [view],
   );
 
   const uploadPublicHighlight = useCallback(
@@ -582,6 +666,49 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [progress, isText]);
+
+  useEffect(() => {
+    if (!progress?.range || isText || isPdf || !view) return;
+    const sectionIndex = getEpubSectionIndexForRange(progress.range);
+    if (sectionIndex == null) return;
+    const sectionInfo = getEpubSectionInfo(progress.range, sectionIndex);
+    const sectionId = sectionInfo?.sectionId || progress.sectionHref;
+    const offsets = getEpubSectionOffsets(progress.range);
+    if (!sectionId || !offsets) return;
+
+    const rangeKey = `${sectionId}|${offsets.normStart}|${offsets.normEnd}`;
+    if (publicHighlightRangeKey.current === rangeKey) return;
+    publicHighlightRangeKey.current = rangeKey;
+
+    const requestId = (publicHighlightRequestId.current += 1);
+    const timeout = window.setTimeout(async () => {
+      try {
+        const highlights = await listPublicHighlightsBatch({
+          bookKey: bookId,
+          anchorType: "epub",
+          ranges: [`section|${sectionId}|${offsets.normStart}|${offsets.normEnd}`],
+        });
+        if (publicHighlightRequestId.current !== requestId) return;
+        syncPublicHighlights(highlights);
+      } catch (error) {
+        console.warn("Failed to load public highlights:", error);
+      }
+    }, 200);
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    bookId,
+    getEpubSectionIndexForRange,
+    getEpubSectionInfo,
+    getEpubSectionOffsets,
+    isPdf,
+    isText,
+    progress?.location,
+    progress?.range,
+    progress?.sectionHref,
+    syncPublicHighlights,
+    view,
+  ]);
 
   return {
     // 状态

@@ -46,6 +46,7 @@ export interface BookNote {
   id: string;
   type: BookNoteType;
   cfi: string;
+  key?: string;
   text?: string;
   style?: HighlightStyle;
   color?: HighlightColor;
