@@ -12,10 +12,13 @@ import { useAppSettingsStore } from "@/store/app-settings-store";
 import { useLayoutStore } from "@/store/layout-store";
 import { useThemeStore } from "@/store/theme-store";
 import { getOSPlatform } from "@/utils/misc";
+import { useT } from "@/hooks/use-i18n";
 import { Tabs } from "app-tabs";
 import { HomeIcon } from "lucide-react";
 import { Resizable } from "re-resizable";
 import { useEffect, useRef, useState } from "react";
+import { Menu } from "@tauri-apps/api/menu";
+import { LogicalPosition } from "@tauri-apps/api/window";
 
 export default function ReaderLayout() {
   useFontEvents(); // 监听系统字体变更事件，确保自定义字体加载后立即生效
@@ -25,6 +28,9 @@ export default function ReaderLayout() {
     isHomeActive, // 是否处于首页视图
 
     removeTab, // 关闭标签的动作
+    closeOtherTabs,
+    closeLeftTabs,
+    closeRightTabs,
     activateTab, // 激活标签的动作
     navigateToHome, // 返回首页的动作
     getReaderStore, // 获取指定标签对应的 ReaderStore
@@ -33,11 +39,45 @@ export default function ReaderLayout() {
   } = useLayoutStore(); // 读取布局相关状态
   const { isDarkMode, swapSidebars } = useThemeStore(); // 读取主题与侧栏位置交换配置
   const { isSettingsDialogOpen, toggleSettingsDialog } = useAppSettingsStore(); // 设置弹窗开关状态
+  const t = useT();
 
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 记录窗口大小调整的定时器句柄
   const [showOverlay, setShowOverlay] = useState(false); // 控制调整大小时的遮罩显示
 
   const isWindows = getOSPlatform() === "windows"; // 判断是否为 Windows，用于 Tabs 左侧留白
+
+  const handleTabContextMenu = async (tabId: string, event: MouseEvent) => {
+    event.preventDefault();
+    const tabIndex = tabs.findIndex((tab) => tab.id === tabId);
+    if (tabIndex === -1) return;
+    activateTab(tabId);
+
+    try {
+      const menu = await Menu.new({
+        items: [
+          {
+            id: "close-others",
+            text: t("tabs.closeOthers", "关闭其他"),
+            action: () => closeOtherTabs(tabId),
+          },
+          {
+            id: "close-left",
+            text: t("tabs.closeLeft", "关闭左侧"),
+            action: () => closeLeftTabs(tabId),
+          },
+          {
+            id: "close-right",
+            text: t("tabs.closeRight", "关闭右侧"),
+            action: () => closeRightTabs(tabId),
+          },
+        ],
+      });
+
+      await menu.popup(new LogicalPosition(event.clientX, event.clientY));
+    } catch (error) {
+      console.error("Failed to show tab context menu:", error);
+    }
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -90,6 +130,7 @@ export default function ReaderLayout() {
           onTabActive={activateTab} // 切换标签时触发
           onTabClose={removeTab} // 关闭标签时触发
           onTabReorder={() => {}} // 拖拽排序暂未实现
+          onContextMenu={handleTabContextMenu}
           draggable={true} // 启用拖拽
           darkMode={isDarkMode} // 依据主题切换样式
           className="h-7" // 固定高度

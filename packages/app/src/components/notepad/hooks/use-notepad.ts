@@ -26,7 +26,11 @@ export const useNotepad = ({ bookId }: UseNotepadProps = {}) => {
   } = useInfiniteQuery({
     queryKey: ["notes", bookId],
     queryFn: ({ pageParam = 1 }) => {
-      return getNotesPaginated(pageParam, 20, { bookId }).then((notes) => ({
+      return getNotesPaginated(pageParam, 20, {
+        bookId,
+        sortBy: "created_at",
+        sortOrder: "asc",
+      }).then((notes) => ({
         data: notes,
         nextCursor: notes.length === 20 ? pageParam + 1 : undefined,
       }));

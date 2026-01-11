@@ -100,6 +100,68 @@ function shouldDisableToolsForCurrentModel(): boolean {
   return modelId.includes("deepseek") || modelId.includes("r1");
 }
 
+type DsmlFilter = {
+  filter: (text: string) => string;
+  flush: () => string;
+};
+
+function createDsmlFilter(): DsmlFilter {
+  const startRe = /<\|\s*DSML\s*\|/i;
+  const endRe = /<\/\|\s*DSML\s*\|/i;
+  const keepTail = 32;
+  let buffer = "";
+  let inDsml = false;
+
+  const filter = (text: string) => {
+    let input = buffer + text;
+    let output = "";
+    buffer = "";
+
+    while (input.length) {
+      if (!inDsml) {
+        const startIdx = input.search(startRe);
+        if (startIdx === -1) {
+          if (input.length > keepTail) {
+            output += input.slice(0, -keepTail);
+            buffer = input.slice(-keepTail);
+          } else {
+            buffer = input;
+          }
+          return output;
+        }
+        output += input.slice(0, startIdx);
+        input = input.slice(startIdx);
+        inDsml = true;
+      } else {
+        const endIdx = input.search(endRe);
+        if (endIdx === -1) {
+          buffer = input.slice(-keepTail);
+          return output;
+        }
+        const afterEnd = input.slice(endIdx);
+        const endMatch = afterEnd.match(/^<\/\|\s*DSML\s*\|[^>\n]*>?/i);
+        const endLen = endMatch ? endMatch[0].length : 0;
+        input = afterEnd.slice(endLen);
+        inDsml = false;
+      }
+    }
+
+    return output;
+  };
+
+  const flush = () => {
+    if (inDsml) {
+      buffer = "";
+      return "";
+    }
+    const out = buffer;
+    buffer = "";
+    return out;
+  };
+
+  return { filter, flush };
+}
+
 export class CustomChatTransport implements ChatTransport<UIMessage> {
   private model: LanguageModel;
   private prepareSendMessagesRequest?: PrepareSendMessagesRequest<UIMessage>;
@@ -199,7 +261,7 @@ export class CustomChatTransport implements ChatTransport<UIMessage> {
       system: await buildReadingPrompt(chatContext, useI18nStore.getState().getResolvedLocale()),
     });
 
-    return result.toUIMessageStream({
+    const stream = result.toUIMessageStream({
       onError: (error) => {
         console.log("error", error);
         if (error == null) {
@@ -224,6 +286,57 @@ export class CustomChatTransport implements ChatTransport<UIMessage> {
         }
       },
     });
+
+    const textFilter = createDsmlFilter();
+    const reasoningFilter = createDsmlFilter();
+
+    return stream.pipeThrough(
+      new TransformStream<UIMessageChunk, UIMessageChunk>({
+        transform(chunk, controller) {
+          if (chunk.type === "text-delta") {
+            const delta = textFilter.filter(chunk.delta);
+            if (delta) {
+              controller.enqueue({ ...chunk, delta });
+            }
+            return;
+          }
+          if (chunk.type === "text-end") {
+            const flushed = textFilter.flush();
+            if (flushed) {
+              controller.enqueue({
+                type: "text-delta",
+                delta: flushed,
+                id: chunk.id,
+                providerMetadata: chunk.providerMetadata,
+              });
+            }
+            controller.enqueue(chunk);
+            return;
+          }
+          if (chunk.type === "reasoning-delta") {
+            const delta = reasoningFilter.filter(chunk.delta);
+            if (delta) {
+              controller.enqueue({ ...chunk, delta });
+            }
+            return;
+          }
+          if (chunk.type === "reasoning-end") {
+            const flushed = reasoningFilter.flush();
+            if (flushed) {
+              controller.enqueue({
+                type: "reasoning-delta",
+                delta: flushed,
+                id: chunk.id,
+                providerMetadata: chunk.providerMetadata,
+              });
+            }
+            controller.enqueue(chunk);
+            return;
+          }
+          controller.enqueue(chunk);
+        },
+      }),
+    );
   }
 
   async reconnectToStream(

@@ -21,6 +21,9 @@ interface LayoutStore {
 
   openBook: (bookId: string, title: string) => void;
   removeTab: (tabId: string) => void;
+  closeOtherTabs: (tabId: string) => void;
+  closeLeftTabs: (tabId: string) => void;
+  closeRightTabs: (tabId: string) => void;
   activateTab: (tabId: string) => void;
   navigateToHome: () => void;
   updateTab: (tabId: string, updates: Partial<Tab>) => void;
@@ -105,6 +108,65 @@ export const useLayoutStore = create<LayoutStore>()(
         } else {
           set({ tabs: tabsAfterClose });
         }
+      },
+      closeOtherTabs: (tabId: string) => {
+        const { tabs, readerStores } = get();
+        const target = tabs.find((tab) => tab.id === tabId);
+        if (!target) return;
+
+        for (const tab of tabs) {
+          if (tab.id !== tabId) {
+            readerStores.delete(tab.id);
+          }
+        }
+
+        set({
+          tabs: [{ ...target, active: true }],
+          activeTabId: tabId,
+          isHomeActive: false,
+        });
+      },
+      closeLeftTabs: (tabId: string) => {
+        const { tabs, readerStores } = get();
+        const targetIndex = tabs.findIndex((tab) => tab.id === tabId);
+        if (targetIndex <= 0) return;
+
+        const toRemove = tabs.slice(0, targetIndex);
+        for (const tab of toRemove) {
+          readerStores.delete(tab.id);
+        }
+
+        const remaining = tabs.slice(targetIndex).map((tab) => ({
+          ...tab,
+          active: tab.id === tabId,
+        }));
+
+        set({
+          tabs: remaining,
+          activeTabId: tabId,
+          isHomeActive: false,
+        });
+      },
+      closeRightTabs: (tabId: string) => {
+        const { tabs, readerStores } = get();
+        const targetIndex = tabs.findIndex((tab) => tab.id === tabId);
+        if (targetIndex === -1 || targetIndex >= tabs.length - 1) return;
+
+        const toRemove = tabs.slice(targetIndex + 1);
+        for (const tab of toRemove) {
+          readerStores.delete(tab.id);
+        }
+
+        const remaining = tabs.slice(0, targetIndex + 1).map((tab) => ({
+          ...tab,
+          active: tab.id === tabId,
+        }));
+
+        set({
+          tabs: remaining,
+          activeTabId: tabId,
+          isHomeActive: false,
+        });
       },
 
       activateTab: (tabId: string) => {

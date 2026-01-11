@@ -54,6 +54,36 @@ export const I18N_DICT: I18nDict = {
     de: "Einstellungen",
     "pt-BR": "Configurações",
   },
+  "tabs.closeOthers": {
+    zh: "关闭其他",
+    en: "Close others",
+    ja: "他を閉じる",
+    ko: "다른 탭 닫기",
+    es: "Cerrar otros",
+    fr: "Fermer les autres",
+    de: "Andere schließen",
+    "pt-BR": "Fechar outros",
+  },
+  "tabs.closeLeft": {
+    zh: "关闭左侧",
+    en: "Close left",
+    ja: "左を閉じる",
+    ko: "왼쪽 닫기",
+    es: "Cerrar a la izquierda",
+    fr: "Fermer à gauche",
+    de: "Links schließen",
+    "pt-BR": "Fechar à esquerda",
+  },
+  "tabs.closeRight": {
+    zh: "关闭右侧",
+    en: "Close right",
+    ja: "右を閉じる",
+    ko: "오른쪽 닫기",
+    es: "Cerrar a la derecha",
+    fr: "Fermer à droite",
+    de: "Rechts schließen",
+    "pt-BR": "Fechar à direita",
+  },
 
   // Library
   "library.addBook": {
