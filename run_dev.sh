@@ -1,0 +1,1 @@
+ pnpm -C packages/app tauri dev
