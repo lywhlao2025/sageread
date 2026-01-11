@@ -94,6 +94,29 @@ function stripThinkBlocks(text: string): string {
   return text.replace(/<think>[\s\S]*?<\/think>\s*/gi, "").trim();
 }
 
+function stripDsmlBlocks(text: string): string {
+  return text
+    .replace(/<\|\s*DSML\s*\|[\s\S]*?<\/\|\s*DSML\s*\|\s*function_calls\s*>/gi, "")
+    .replace(/<\|\s*DSML\s*\|[\s\S]*?<\/\|\s*DSML\s*\|\s*invoke\s*>/gi, "")
+    .trim();
+}
+
+function formatChunkCitations(text: string): string {
+  const ids = new Set<string>();
+  const replaced = text.replace(/\[chunk_(\d+)\]/gi, (_, id: string) => {
+    ids.add(id);
+    return `[^chunk_${id}]`;
+  });
+
+  if (!ids.size) return replaced;
+
+  const footnotes = Array.from(ids)
+    .map((id) => `[^chunk_${id}]: 引用片段 ${id}`)
+    .join("\n");
+
+  return `${replaced}\n\n${footnotes}`;
+}
+
 /**
  * For translation requests, hide reasoning parts from the assistant message
  * (prevents showing "Thought for X seconds" for simple translate actions).
@@ -362,11 +385,12 @@ export function ChatMessages({
       const className = isAssistant
         ? "prose prose-neutral flex-1 rounded bg-transparent p-0 text-foreground"
         : "rounded-xl bg-muted p-2 text-base leading-5";
+      const content = isAssistant ? formatChunkCitations(stripDsmlBlocks(textBuffer)) : textBuffer;
 
       elements.push(
         <div key={`text-${elements.length}`} onMouseUp={handleTextSelection}>
           <MessageContent className={className} markdown={isAssistant}>
-            {textBuffer}
+            {content}
           </MessageContent>
         </div>,
       );
