@@ -108,53 +108,49 @@ type DsmlFilter = {
 function createDsmlFilter(): DsmlFilter {
   const startRe = /<\|\s*DSML\s*\|/i;
   const endRe = /<\/\|\s*DSML\s*\|/i;
-  const keepTail = 32;
   let buffer = "";
   let inDsml = false;
 
-  const filter = (text: string) => {
-    let input = buffer + text;
-    let output = "";
-    buffer = "";
+  const processLine = (line: string) => {
+    if (!line) return "";
 
-    while (input.length) {
-      if (!inDsml) {
-        const startIdx = input.search(startRe);
-        if (startIdx === -1) {
-          if (input.length > keepTail) {
-            output += input.slice(0, -keepTail);
-            buffer = input.slice(-keepTail);
-          } else {
-            buffer = input;
-          }
-          return output;
-        }
-        output += input.slice(0, startIdx);
-        input = input.slice(startIdx);
-        inDsml = true;
-      } else {
-        const endIdx = input.search(endRe);
-        if (endIdx === -1) {
-          buffer = input.slice(-keepTail);
-          return output;
-        }
-        const afterEnd = input.slice(endIdx);
-        const endMatch = afterEnd.match(/^<\/\|\s*DSML\s*\|[^>\n]*>?/i);
-        const endLen = endMatch ? endMatch[0].length : 0;
-        input = afterEnd.slice(endLen);
-        inDsml = false;
+    if (inDsml) {
+      const endIdx = line.search(endRe);
+      if (endIdx === -1) {
+        return "";
       }
+      const afterEnd = line.slice(endIdx).replace(endRe, "");
+      inDsml = false;
+      return afterEnd;
     }
 
-    return output;
+    const startIdx = line.search(startRe);
+    if (startIdx === -1) {
+      return line;
+    }
+
+    const beforeStart = line.slice(0, startIdx);
+    const rest = line.slice(startIdx);
+    const endIdx = rest.search(endRe);
+    if (endIdx === -1) {
+      inDsml = true;
+      return beforeStart;
+    }
+
+    const afterEnd = rest.slice(endIdx).replace(endRe, "");
+    return beforeStart + afterEnd;
+  };
+
+  const filter = (text: string) => {
+    const input = buffer + text;
+    const lines = input.split("\n");
+    buffer = lines.pop() ?? "";
+    const output = lines.map(processLine).filter(Boolean).join("\n");
+    return output ? `${output}\n` : "";
   };
 
   const flush = () => {
-    if (inDsml) {
-      buffer = "";
-      return "";
-    }
-    const out = buffer;
+    const out = processLine(buffer);
     buffer = "";
     return out;
   };
