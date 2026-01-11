@@ -95,10 +95,9 @@ function stripThinkBlocks(text: string): string {
 }
 
 function stripDsmlBlocks(text: string): string {
-  return text
-    .replace(/<\|\s*DSML\s*\|[\s\S]*?<\/\|\s*DSML\s*\|\s*function_calls\s*>/gi, "")
-    .replace(/<\|\s*DSML\s*\|[\s\S]*?<\/\|\s*DSML\s*\|\s*invoke\s*>/gi, "")
-    .trim();
+  const lines = text.split(/\r?\n/);
+  const filtered = lines.filter((line) => !line.includes("DSML"));
+  return filtered.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 function formatChunkCitations(text: string): string {
