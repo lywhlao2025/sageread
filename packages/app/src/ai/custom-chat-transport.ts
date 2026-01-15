@@ -25,6 +25,7 @@ import {
   notesTool,
 } from "./tools";
 import { processQuoteMessages, selectValidMessages } from "./utils";
+import { createDsmlFilter } from "./utils/dsml-filter";
 
 /**
  * Extracts the user question text from a UIMessage (concatenating all text parts).
@@ -98,64 +99,6 @@ function shouldDisableToolsForCurrentModel(): boolean {
   if (!isLikelyOllamaBaseUrl(provider?.baseUrl)) return false;
   const modelId = (selected.modelId || "").toLowerCase();
   return modelId.includes("deepseek") || modelId.includes("r1");
-}
-
-type DsmlFilter = {
-  filter: (text: string) => string;
-  flush: () => string;
-};
-
-function createDsmlFilter(): DsmlFilter {
-  const startRe = /<\|\s*DSML\s*\|/i;
-  const endRe = /<\/\|\s*DSML\s*\|/i;
-  let buffer = "";
-  let inDsml = false;
-
-  const processLine = (line: string) => {
-    if (!line) return "";
-
-    if (inDsml) {
-      const endIdx = line.search(endRe);
-      if (endIdx === -1) {
-        return "";
-      }
-      const afterEnd = line.slice(endIdx).replace(endRe, "");
-      inDsml = false;
-      return afterEnd;
-    }
-
-    const startIdx = line.search(startRe);
-    if (startIdx === -1) {
-      return line;
-    }
-
-    const beforeStart = line.slice(0, startIdx);
-    const rest = line.slice(startIdx);
-    const endIdx = rest.search(endRe);
-    if (endIdx === -1) {
-      inDsml = true;
-      return beforeStart;
-    }
-
-    const afterEnd = rest.slice(endIdx).replace(endRe, "");
-    return beforeStart + afterEnd;
-  };
-
-  const filter = (text: string) => {
-    const input = buffer + text;
-    const lines = input.split("\n");
-    buffer = lines.pop() ?? "";
-    const output = lines.map(processLine).filter(Boolean).join("\n");
-    return output ? `${output}\n` : "";
-  };
-
-  const flush = () => {
-    const out = processLine(buffer);
-    buffer = "";
-    return out;
-  };
-
-  return { filter, flush };
 }
 
 export class CustomChatTransport implements ChatTransport<UIMessage> {

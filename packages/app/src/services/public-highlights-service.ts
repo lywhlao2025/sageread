@@ -382,6 +382,9 @@ export const startPublicHighlightRetryLoop = () => {
   if (retryLoopStarted || typeof window === "undefined") {
     return;
   }
+  if (import.meta.env.VITE_E2E === "1") {
+    return;
+  }
   retryLoopStarted = true;
   const intervalMs = import.meta.env.DEV ? DEV_RETRY_INTERVAL_MS : PROD_RETRY_INTERVAL_MS;
 
