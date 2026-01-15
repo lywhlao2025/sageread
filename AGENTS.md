@@ -119,7 +119,10 @@
 - 无无关改动，未引入多余依赖。
 - 文档同步更新（如涉及 API/行为变化）。
 - 关键功能手动抽检通过（如自动化未覆盖）。
-- 如 git push 失败，可执行 `proxy_on` 开启代理网络后重试。
+- 如 git push 失败，使用以下方式开启代理后重试（默认流程）：
+  - `export http_proxy=http://127.0.0.1:7890`
+  - `export https_proxy=$http_proxy`
+  - 然后再次执行 `git push`
 
 ## 跨仓协作规范（sageread + sageReadServer）
 当需求涉及前后端联动时，必须一次性统一处理两个仓库，避免重复沟通与遗漏。
