@@ -14,7 +14,7 @@ import { useAppSettingsStore } from "@/store/app-settings-store";
 import type { BookNote, HighlightColor, HighlightStyle } from "@/types/book";
 import type { BookMeta } from "@/types/note";
 import { type Position, type TextSelection, getPopupPosition, getPosition } from "@/utils/sel";
-import { getTargetLang } from "@/utils/misc"; // 获取环境默认的翻译目标语言
+import { resolveTranslateTargetLang } from "@/utils/misc";
 import { useLocale, useT } from "@/hooks/use-i18n";
 import { useQueryClient } from "@tanstack/react-query";
 import * as CFI from "foliate-js/epubcfi.js";
@@ -532,21 +532,7 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
 
   const handleTranslate = useCallback(() => { // 处理翻译请求
     if (!selection || !selection.text) return; // 无选中内容时退出
-    const configuredLang = settings.globalReadSettings.translateTargetLang?.trim(); // 获取用户配置的目标语言
-    // Older defaults used "EN" which makes the prompt unnatural for many models.
-    // Prefer translating to Chinese unless user explicitly configured a different target language.
-    const normalized = (configuredLang || "").trim();
-    const normalizedLower = normalized.toLowerCase();
-    const targetLang =
-      !normalized
-        ? getTargetLang()
-        : normalized === "EN" || normalizedLower === "en" || normalizedLower === "english"
-          ? locale === "en"
-            ? "English"
-            : "中文"
-          : normalizedLower.startsWith("zh")
-            ? "中文"
-            : normalized;
+    const targetLang = resolveTranslateTargetLang(undefined, locale);
     const question = `${t("reader.translateQuoted", "请将引用内容翻译成{lang}。", {
       lang: targetLang,
       text: selection.text,
@@ -585,7 +571,6 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
     translate(selection.text, question);
   }, [
     selection,
-    settings.globalReadSettings.translateTargetLang,
     bookId,
     locale,
     t,

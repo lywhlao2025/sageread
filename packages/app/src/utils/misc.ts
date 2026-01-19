@@ -44,27 +44,26 @@ export const getUserLang = () => {
   return locale.split("-")[0] || "en";
 };
 
-export const getTargetLang = () => {
-  const resolved = useI18nStore.getState().getResolvedLocale();
-  switch (resolved) {
-    case "zh":
-      return "中文";
-    case "ja":
-      return "日本語";
-    case "ko":
-      return "한국어";
-    case "es":
-      return "Español";
-    case "fr":
-      return "Français";
-    case "de":
-      return "Deutsch";
-    case "pt-BR":
-      return "Português (Brasil)";
-    case "en":
-    default:
-      return "English";
-  }
+const TARGET_LANG_BY_LOCALE: Record<string, string> = {
+  zh: "中文",
+  ja: "日本語",
+  ko: "한국어",
+  es: "Español",
+  fr: "Français",
+  de: "Deutsch",
+  "pt-BR": "Português (Brasil)",
+  en: "English",
+};
+
+export const getTargetLangForLocale = (locale?: string) => {
+  const resolved = locale || useI18nStore.getState().getResolvedLocale();
+  return TARGET_LANG_BY_LOCALE[resolved] || TARGET_LANG_BY_LOCALE.en;
+};
+
+export const getTargetLang = () => getTargetLangForLocale();
+
+export const resolveTranslateTargetLang = (_configuredLang?: string, locale?: string) => {
+  return getTargetLangForLocale(locale);
 };
 
 export const isCJKEnv = () => {

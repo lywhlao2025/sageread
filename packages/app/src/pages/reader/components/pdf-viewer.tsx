@@ -5,7 +5,7 @@ import { useLocale, useT } from "@/hooks/use-i18n";
 import { useReaderStore } from "@/pages/reader/components/reader-provider";
 import { useSelectionTranslate } from "@/pages/reader/hooks/use-selection-translate";
 import { useAppSettingsStore } from "@/store/app-settings-store";
-import { getTargetLang } from "@/utils/misc";
+import { resolveTranslateTargetLang } from "@/utils/misc";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FiCopy, FiHelpCircle, FiMessageCircle } from "react-icons/fi";
 import { MdTranslate } from "react-icons/md";
@@ -261,19 +261,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
 
   const handleTranslate = () => {
     if (!selectedText) return;
-    const configuredLang = settings.globalReadSettings.translateTargetLang?.trim();
-    const normalized = (configuredLang || "").trim();
-    const normalizedLower = normalized.toLowerCase();
-    const targetLang =
-      !normalized
-        ? getTargetLang()
-        : normalized === "EN" || normalizedLower === "en" || normalizedLower === "english"
-          ? locale === "en"
-            ? "English"
-            : "中文"
-          : normalizedLower.startsWith("zh")
-            ? "中文"
-            : normalized;
+    const targetLang = resolveTranslateTargetLang(undefined, locale);
     const prompt = `${t("reader.translateTextPrompt", undefined, { lang: targetLang, text: selectedText })}\n\n${t(
       "reader.translateDirectives",
       "Answer the question directly.\nDo not include analysis, reasoning, thoughts, or explanations.\nOnly output the final result.",
