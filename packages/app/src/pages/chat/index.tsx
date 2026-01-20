@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { useChatState } from "@/hooks/use-chat-state";
 import { useAppSettingsStore } from "@/store/app-settings-store";
 import { useChatReaderStore } from "@/store/chat-reader-store";
+import { useModeStore } from "@/store/mode-store";
 import { useProviderStore } from "@/store/provider-store";
 import { useThemeStore } from "@/store/theme-store";
 import {
@@ -141,6 +142,8 @@ EmptyState.displayName = "EmptyState";
 function ChatPage() {
   const { toggleSettingsDialog } = useAppSettingsStore();
   const { autoScroll } = useThemeStore();
+  const { mode } = useModeStore();
+  const isSimpleMode = mode === "simple";
   const [toolDetail, setToolDetail] = useState<any>(null);
   const [showToolDetail, setShowToolDetail] = useState(false);
   const scrollContextRef = useRef<any>(null);
@@ -276,13 +279,15 @@ function ChatPage() {
               >
                 <History className="size-5" />
               </Button>
-              <ModelSelector
-                selectedModel={selectedModel}
-                onModelSelect={setSelectedModel}
-                selectedTranslateModel={selectedTranslateModel}
-                onTranslateSelect={setSelectedTranslateModel}
-                className="max-w-60"
-              />
+              {!isSimpleMode && (
+                <ModelSelector
+                  selectedModel={selectedModel}
+                  onModelSelect={setSelectedModel}
+                  selectedTranslateModel={selectedTranslateModel}
+                  onTranslateSelect={setSelectedTranslateModel}
+                  className="max-w-60"
+                />
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -294,14 +299,16 @@ function ChatPage() {
                 <MessageCirclePlus className="size-5" />
               </Button>
 
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-8 rounded-full text-neutral-600 hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-800"
-                onClick={toggleSettingsDialog}
-              >
-                <Settings className="size-5" />
-              </Button>
+              {!isSimpleMode && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 rounded-full text-neutral-600 hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-800"
+                  onClick={toggleSettingsDialog}
+                >
+                  <Settings className="size-5" />
+                </Button>
+              )}
             </div>
             {messages.length > 0 && (
               <div className="absolute inset-x-0 bottom-0 z-10 h-6 translate-y-full bg-gradient-to-b from-background to-background/30 blur-sm" />

@@ -7,7 +7,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useT } from "@/hooks/use-i18n";
+import { trackEvent } from "@/services/analytics-service";
 import { useI18nStore } from "@/store/i18n-store";
+import { type AppMode, useModeStore } from "@/store/mode-store";
 import { useThemeStore } from "@/store/theme-store";
 import type { ThemeMode } from "@/styles/themes";
 import { getVersion } from "@tauri-apps/api/app";
@@ -29,6 +31,8 @@ export default function GeneralSettings() {
   const [appVersion, setAppVersion] = useState("0.1.0");
 
   const { themeMode, autoScroll, swapSidebars, setThemeMode, setAutoScroll, setSwapSidebars } = useThemeStore();
+  const { mode, setMode } = useModeStore();
+  const activeMode = mode ?? "classic";
 
   const themeModeOptions = [
     { value: "auto" as ThemeMode, label: t("settings.theme.auto", "系统") },
@@ -103,6 +107,12 @@ export default function GeneralSettings() {
     setThemeMode(mode);
   };
 
+  const handleModeChange = (nextMode: AppMode) => {
+    if (activeMode === nextMode) return;
+    setMode(nextMode);
+    trackEvent("switch_mode", { from: activeMode, to: nextMode, source: "settings" });
+  };
+
   const getCurrentThemeModeLabel = () => {
     return themeModeOptions.find((option) => option.value === themeMode)?.label || t("settings.theme.auto", "系统");
   };
@@ -139,6 +149,38 @@ export default function GeneralSettings() {
             >
               <RefreshCw className={clsx("size-4", isCheckingUpdate && "animate-spin")} />
               {isCheckingUpdate ? t("settings.checking", "检查中...") : t("settings.checkUpdate", "检查更新")}
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-lg bg-muted/80 p-4">
+        <h2 className="text mb-4 dark:text-neutral-200">{t("settings.mode", "使用模式")}</h2>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <span className="text dark:text-neutral-200">{t("settings.mode", "使用模式")}</span>
+            <p className="mt-2 text-neutral-600 text-xs dark:text-neutral-400">
+              {t("settings.mode.desc", "在简约与经典之间切换")}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={activeMode === "simple" ? "default" : "outline"}
+              onClick={() => handleModeChange("simple")}
+              className="gap-1"
+            >
+              {activeMode === "simple" ? <Check className="size-3" /> : null}
+              {t("settings.mode.simple", "简约模式")}
+            </Button>
+            <Button
+              size="sm"
+              variant={activeMode === "classic" ? "default" : "outline"}
+              onClick={() => handleModeChange("classic")}
+              className="gap-1"
+            >
+              {activeMode === "classic" ? <Check className="size-3" /> : null}
+              {t("settings.mode.classic", "经典模式")}
             </Button>
           </div>
         </div>

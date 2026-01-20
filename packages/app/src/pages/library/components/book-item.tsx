@@ -2,6 +2,7 @@ import { useDownloadImage } from "@/hooks/use-download-image";
 import { repairStoredEpubForIndexing, updateBookVectorizationMeta } from "@/services/book-service";
 import { type EpubIndexResult, indexEpub } from "@/services/book-service";
 import { useLayoutStore } from "@/store/layout-store";
+import { useModeStore } from "@/store/mode-store";
 import { useNotificationStore } from "@/store/notification-store";
 import type { BookWithStatusAndUrls } from "@/types/simple-book";
 import { getCurrentVectorModelConfig } from "@/utils/model";
@@ -46,6 +47,8 @@ export default function BookItem({ book, onDelete, onUpdate, onRefresh }: BookIt
   const { downloadImage } = useDownloadImage();
   const [showEmbeddingDialog, setShowEmbeddingDialog] = useState(false);
   const [vectorizeProgress, setVectorizeProgress] = useState<number | null>(null);
+  const { mode } = useModeStore();
+  const isSimpleMode = mode === "simple";
 
   useEffect(() => {
     let unlisten: (() => void) | null = null;
@@ -343,10 +346,12 @@ export default function BookItem({ book, onDelete, onUpdate, onRefresh }: BookIt
 
           <div className="flex h-8 items-center justify-between space-x-2 p-2 py-0">
             <div className="flex-1">{renderProgress()}</div>
-            <div className="flex items-center gap-2">
-              {renderVectorizationStatus()}
-              <MoreHorizontal onClick={handleMenuClick} className="h-4 w-4 text-neutral-500 dark:text-neutral-400" />
-            </div>
+            {!isSimpleMode && (
+              <div className="flex items-center gap-2">
+                {renderVectorizationStatus()}
+                <MoreHorizontal onClick={handleMenuClick} className="h-4 w-4 text-neutral-500 dark:text-neutral-400" />
+              </div>
+            )}
           </div>
         </div>
       </div>

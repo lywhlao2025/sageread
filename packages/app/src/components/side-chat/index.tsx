@@ -4,6 +4,7 @@ import { useChatState } from "@/hooks/use-chat-state";
 import { useT } from "@/hooks/use-i18n";
 import { useReaderStore } from "@/pages/reader/components/reader-provider";
 import { useAppSettingsStore } from "@/store/app-settings-store";
+import { useModeStore } from "@/store/mode-store";
 import { useProviderStore } from "@/store/provider-store";
 import { useThemeStore } from "@/store/theme-store";
 import {
@@ -34,6 +35,8 @@ function ChatContent({ bookId }: ChatContentProps) {
   const t = useT();
   const { toggleSettingsDialog } = useAppSettingsStore();
   const { autoScroll } = useThemeStore();
+  const { mode } = useModeStore();
+  const isSimpleMode = mode === "simple";
   const [toolDetail, setToolDetail] = useState<any>(null);
   const [showMindmapDialog, setShowMindmapDialog] = useState(false);
   const setActiveContext = useReaderStore((state) => state.setActiveContext)!;
@@ -173,13 +176,15 @@ function ChatContent({ bookId }: ChatContentProps) {
       <div className="ml-1 flex-shrink-0 border-neutral-300 dark:border-neutral-700">
         <div className="flex h-8 items-center justify-between">
           <div className="flex items-center gap-2 pl-0.5">
-            <ModelSelector
-              selectedModel={selectedModel}
-              onModelSelect={setSelectedModel}
-              selectedTranslateModel={selectedTranslateModel}
-              onTranslateSelect={setSelectedTranslateModel}
-              className="z-40 w-[12rem] flex-shrink-0"
-            />
+            {!isSimpleMode && (
+              <ModelSelector
+                selectedModel={selectedModel}
+                onModelSelect={setSelectedModel}
+                selectedTranslateModel={selectedTranslateModel}
+                onTranslateSelect={setSelectedTranslateModel}
+                className="z-40 w-[12rem] flex-shrink-0"
+              />
+            )}
           </div>
           <div className="flex items-center gap-0">
             <Button
@@ -198,14 +203,16 @@ function ChatContent({ bookId }: ChatContentProps) {
             >
               <History className="h-5 w-5" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="z-40 size-7 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-700"
-              onClick={toggleSettingsDialog}
-            >
-              <Settings className="h-5 w-5" />
-            </Button>
+            {!isSimpleMode && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="z-40 size-7 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                onClick={toggleSettingsDialog}
+              >
+                <Settings className="h-5 w-5" />
+              </Button>
+            )}
           </div>
         </div>
       </div>

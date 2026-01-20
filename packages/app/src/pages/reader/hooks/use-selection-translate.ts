@@ -1,7 +1,8 @@
 import { useChat } from "@/ai/hooks/use-chat";
 import { useModelSelector } from "@/hooks/use-model-selector";
+import { trackEvent } from "@/services/analytics-service";
 import type { UIMessage } from "ai";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 function stripThinkBlocks(text: string): string {
   return text.replace(/<think>[\s\S]*?<\/think>\s*/gi, "").trim();
@@ -70,6 +71,9 @@ export function useSelectionTranslate(bookId?: string) {
     },
   });
   const selectionRef = useRef("");
+  const requestStartRef = useRef<number | null>(null);
+  const requestIdRef = useRef(0);
+  const trackedRequestRef = useRef<number | null>(null);
 
   const translate = useCallback(
     (selectedText: string, question: string) => {
@@ -77,6 +81,8 @@ export function useSelectionTranslate(bookId?: string) {
       selectionRef.current = selectedText;
       stop();
       setMessages([]);
+      requestIdRef.current += 1;
+      requestStartRef.current = Date.now();
       sendMessage({
         parts: [
           { type: "quote", text: selectedText, source: "引用" },
@@ -97,6 +103,27 @@ export function useSelectionTranslate(bookId?: string) {
     const filtered = stripSelectionEcho(raw, selectionRef.current);
     return filtered || raw;
   }, [messages]);
+
+  useEffect(() => {
+    const requestId = requestIdRef.current;
+    const requestStart = requestStartRef.current;
+    if (!requestStart || trackedRequestRef.current === requestId) return;
+
+    if (error) {
+      const durationMs = Math.max(0, Date.now() - requestStart);
+      trackEvent("task_failed", { task_type: "translate", duration_ms: durationMs, error_type: "unknown" });
+      trackedRequestRef.current = requestId;
+      requestStartRef.current = null;
+      return;
+    }
+
+    if (status === "ready" && content) {
+      const durationMs = Math.max(0, Date.now() - requestStart);
+      trackEvent("task_done", { task_type: "translate", duration_ms: durationMs });
+      trackedRequestRef.current = requestId;
+      requestStartRef.current = null;
+    }
+  }, [content, error, status]);
 
   return {
     content,

@@ -1,6 +1,6 @@
 import { deleteThread, getAllThreads, getThreadsBybookId } from "@/services/thread-service";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
 
 interface UseThreadsProps {
@@ -41,9 +41,21 @@ export const useThreads = ({ bookId }: UseThreadsProps = {}) => {
     [queryClient, bookId],
   );
 
+  const dedupedThreads = useMemo(() => {
+    if (!threads) return [];
+    const byId = new Map<string, (typeof threads)[number]>();
+    for (const thread of threads) {
+      const existing = byId.get(thread.id);
+      if (!existing || thread.updated_at > existing.updated_at) {
+        byId.set(thread.id, thread);
+      }
+    }
+    return Array.from(byId.values()).sort((a, b) => b.updated_at - a.updated_at);
+  }, [threads]);
+
   return {
     // 查询相关
-    threads: threads ?? [],
+    threads: dedupedThreads,
     error,
     isLoading,
     status,

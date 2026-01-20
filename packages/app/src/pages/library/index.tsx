@@ -98,7 +98,13 @@ export default function NewLibraryPage() {
             <div className="w-44 sm:w-52 md:w-60">
               <SearchToggle searchQuery={searchQuery} onSearchChange={handleSearchChange} />
             </div>
-            <Button onClick={triggerFileSelect} disabled={isUploading} variant="soft" size="sm">
+            <Button
+              onClick={triggerFileSelect}
+              disabled={isUploading}
+              variant="soft"
+              size="sm"
+              className="h-9 rounded-full border border-neutral-200 bg-white px-4 font-semibold text-neutral-800 shadow-sm hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
+            >
               {isUploading ? (
                 <>
                   <div className="h-4 w-4 animate-spin rounded-full border border-white/30 border-t-white" />

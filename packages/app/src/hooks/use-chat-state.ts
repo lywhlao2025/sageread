@@ -4,6 +4,7 @@ import { useModelSelector } from "@/hooks/use-model-selector";
 import type { ReasoningTimes } from "@/hooks/use-reasoning-timer";
 import { useTextEventHandler } from "@/hooks/use-text-event";
 import { generateContextWithAI } from "@/services/ai-context-service";
+import { trackEvent } from "@/services/analytics-service";
 import {
   createThread,
   editThread,
@@ -90,6 +91,7 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
 
   const messagesRef = useRef<UIMessage[]>([]);
   const reasoningTimesRef = useRef<{ [messageId: string]: ReasoningTimes }>({});
+  const requestStartRef = useRef<number | null>(null);
 
   const handleReasoningTimesUpdate = (messageId: string, reasoningTimes: ReasoningTimes) => {
     reasoningTimesRef.current[messageId] = reasoningTimes;
@@ -110,6 +112,7 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
         const { currentThread } = useThreadStore.getState();
         const { selectedModel } = useProviderStore.getState();
         const resolvedMessages = finishedMessages ?? messagesRef.current;
+        const requestStart = requestStartRef.current;
 
         let nextMessages = resolvedMessages;
 
@@ -151,6 +154,16 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
         const normalizedMessages = Array.isArray(nextMessages) ? [...nextMessages] : [...messagesRef.current];
         messagesRef.current = normalizedMessages;
         setMessages(normalizedMessages);
+
+        if (requestStart) {
+          const durationMs = Math.max(0, Date.now() - requestStart);
+          if (isError) {
+            trackEvent("task_failed", { task_type: "chat", duration_ms: durationMs, error_type: "unknown" });
+          } else {
+            trackEvent("task_done", { task_type: "chat", duration_ms: durationMs });
+          }
+          requestStartRef.current = null;
+        }
 
         if (isError) {
           return;
@@ -389,6 +402,7 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
 
       try {
         generateSemanticContextAsync(trimmedInput);
+        requestStartRef.current = Date.now();
         await sendMessage({ parts: messageParts });
         setMessages((prev) => {
           if (!Array.isArray(prev) || prev.length === 0) {

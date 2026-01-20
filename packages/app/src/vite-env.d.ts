@@ -56,3 +56,7 @@ declare module "foliate-js/mobi.js" {
 declare module "foliate-js/vendor/fflate.js" {
   export const unzlibSync: any;
 }
+
+interface ImportMetaEnv {
+  readonly VITE_AMPLITUDE_API_KEY?: string;
+}

@@ -1,5 +1,6 @@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useLayoutStore } from "@/store/layout-store";
+import { useModeStore } from "@/store/mode-store";
 import { useThemeStore } from "@/store/theme-store";
 import { SessionState } from "@/types/reading-session";
 import { eventDispatcher } from "@/utils/event";
@@ -36,6 +37,9 @@ const HeaderBar = () => {
 
   const { isChatVisible, isNotepadVisible, toggleChatSidebar, toggleNotepadSidebar } = useLayoutStore();
   const { swapSidebars } = useThemeStore();
+  const { mode } = useModeStore();
+  const isSimpleMode = mode === "simple";
+  const resolvedSwapSidebars = isSimpleMode ? false : swapSidebars;
 
   const isTocDropdownOpen = openDropdown === "toc";
   const textToc = useMemo(() => buildTextToc(textContent), [textContent]);
@@ -131,8 +135,8 @@ const HeaderBar = () => {
             showControls ? "opacity-100" : "opacity-0"
           }`}
         >
-          <div className="cursor-pointer" onClick={swapSidebars ? toggleChatSidebar : toggleNotepadSidebar}>
-            {(swapSidebars ? isChatVisible : isNotepadVisible) ? (
+          <div className="cursor-pointer" onClick={resolvedSwapSidebars ? toggleChatSidebar : toggleNotepadSidebar}>
+            {(resolvedSwapSidebars ? isChatVisible : isNotepadVisible) ? (
               <TbLayoutSidebarLeftCollapseFilled className="size-5 text-neutral-700 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200" />
             ) : (
               <TbLayoutSidebarLeftCollapse className="size-5 text-neutral-700 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200" />
@@ -200,9 +204,9 @@ const HeaderBar = () => {
           }`}
         >
           {isText ? <TextSearchDropdown /> : <SearchDropdown />}
-          <SettingsDropdown />
-          <div className="cursor-pointer" onClick={swapSidebars ? toggleNotepadSidebar : toggleChatSidebar}>
-            {(swapSidebars ? isNotepadVisible : isChatVisible) ? (
+          {!isSimpleMode && <SettingsDropdown />}
+          <div className="cursor-pointer" onClick={resolvedSwapSidebars ? toggleNotepadSidebar : toggleChatSidebar}>
+            {(resolvedSwapSidebars ? isNotepadVisible : isChatVisible) ? (
               <TbLayoutSidebarRightCollapseFilled className="size-5 text-neutral-700 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200" />
             ) : (
               <TbLayoutSidebarRightCollapse className="size-5 text-neutral-700 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200" />

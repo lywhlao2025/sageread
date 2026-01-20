@@ -6,8 +6,8 @@ import { Menu } from "@tauri-apps/api/menu";
 import { LogicalPosition } from "@tauri-apps/api/window";
 import { ask } from "@tauri-apps/plugin-dialog";
 import dayjs from "dayjs";
-import { ArrowLeft, MessageCircle } from "lucide-react";
-import { useCallback } from "react";
+import { ArrowLeft, ChevronRight, MessageCircle } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 
 interface ChatThreadsProps {
   bookId: string | undefined;
@@ -18,6 +18,36 @@ interface ChatThreadsProps {
 export function ChatThreads({ bookId, onBack, onSelectThread }: ChatThreadsProps) {
   const t = useT();
   const { threads, error, status, handleDeleteThread: deleteThreadFn } = useThreads({ bookId });
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  const groupedThreads = useMemo(() => {
+    const groups = new Map<string, { key: string; title: string; threads: ThreadSummary[]; latestUpdated: number }>();
+    for (const thread of threads) {
+      const displayTitle = (thread.title || t("chat.untitled", "未命名对话")).trim();
+      const key = displayTitle.toLowerCase() || t("chat.untitled", "未命名对话");
+      const existing = groups.get(key);
+      if (!existing) {
+        groups.set(key, {
+          key,
+          title: displayTitle || t("chat.untitled", "未命名对话"),
+          threads: [thread],
+          latestUpdated: thread.updated_at,
+        });
+      } else {
+        existing.threads.push(thread);
+        if (thread.updated_at > existing.latestUpdated) {
+          existing.latestUpdated = thread.updated_at;
+        }
+      }
+    }
+
+    return Array.from(groups.values())
+      .map((group) => ({
+        ...group,
+        threads: group.threads.sort((a, b) => b.updated_at - a.updated_at),
+      }))
+      .sort((a, b) => b.latestUpdated - a.latestUpdated);
+  }, [threads, t]);
 
   const handleNativeDelete = useCallback(
     async (thread: ThreadSummary) => {
@@ -156,28 +186,62 @@ export function ChatThreads({ bookId, onBack, onSelectThread }: ChatThreadsProps
           </div>
         ) : (
           <div className="space-y-2">
-            {threads.map((thread) => (
-              <button
-                key={thread.id}
-                onClick={() => onSelectThread(thread)}
-                onContextMenu={handleMenuClick(thread)}
-                className="w-full cursor-pointer rounded-lg border p-2 text-left"
-              >
-                <div className="mb-1 flex items-start justify-between gap-2">
-                  <h3 className="line-clamp-1 flex-1 font-medium text-neutral-900 text-sm dark:text-neutral-100">
-                    {thread.title || t("chat.untitled", "未命名对话")}
-                  </h3>
+            {groupedThreads.map((group) => {
+              const isExpanded = expandedGroups.has(group.key);
+              return (
+                <div key={group.key} className="overflow-hidden rounded-lg border">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExpandedGroups((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(group.key)) {
+                          next.delete(group.key);
+                        } else {
+                          next.add(group.key);
+                        }
+                        return next;
+                      });
+                    }}
+                    className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
+                  >
+                    <div className="min-w-0">
+                      <div className="line-clamp-1 font-medium text-neutral-900 text-sm dark:text-neutral-100">
+                        {group.title}
+                      </div>
+                      <div className="text-neutral-500 text-xs dark:text-neutral-500">
+                        {t("chat.messageCount", "{count} 条消息", { count: group.threads[0]?.message_count ?? 0 })}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-neutral-500 text-xs dark:text-neutral-500">
+                      <span>{group.threads.length}</span>
+                      <ChevronRight className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+                    </div>
+                  </button>
+                  {isExpanded && (
+                    <div className="border-neutral-200 border-t dark:border-neutral-700">
+                      {group.threads.map((thread) => (
+                        <button
+                          key={thread.id}
+                          onClick={() => onSelectThread(thread)}
+                          onContextMenu={handleMenuClick(thread)}
+                          className="w-full cursor-pointer border-neutral-200 border-b px-3 py-2 text-left last:border-b-0 dark:border-neutral-700"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-neutral-600 text-xs dark:text-neutral-400">
+                              {t("chat.messageCount", "{count} 条消息", { count: thread.message_count })}
+                            </span>
+                            <span className="flex-shrink-0 text-neutral-500 text-xs dark:text-neutral-500">
+                              {dayjs(thread.updated_at).format("YYYY-MM-DD HH:mm:ss")}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-neutral-600 text-xs dark:text-neutral-400">
-                    {t("chat.messageCount", "{count} 条消息", { count: thread.message_count })}
-                  </span>
-                  <span className="flex-shrink-0 text-neutral-500 text-xs dark:text-neutral-500">
-                    {dayjs(thread.updated_at).format("YYYY-MM-DD HH:mm:ss")}
-                  </span>
-                </div>
-              </button>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
