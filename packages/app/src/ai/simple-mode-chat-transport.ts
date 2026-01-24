@@ -117,13 +117,18 @@ export class SimpleModeChatTransport implements ChatTransport<UIMessage> {
     const chatContext = metadataContext || bodyContext;
     const processedMessages = processQuoteMessages(options.messages || []);
     const selectedMessages = selectValidMessages(processedMessages, 8);
-    const systemPrompt = await buildReadingPrompt(chatContext, locale);
+    const systemPrompt =
+      this.fixedTaskType === "translate" ? "" : taskType === "chat" ? await buildReadingPrompt(chatContext, locale) : "";
 
     const payloadMessages: SimpleModeMessagePayload[] = [];
     if (systemPrompt) {
       payloadMessages.push({ role: "system", content: systemPrompt });
     }
-    payloadMessages.push(...toSimpleMessages(selectedMessages));
+    const filteredMessages =
+      taskType === "translate" || this.fixedTaskType === "translate"
+        ? selectedMessages.filter((message) => message.role !== "system")
+        : selectedMessages;
+    payloadMessages.push(...toSimpleMessages(filteredMessages));
 
     const requestId =
       (typeof globalThis !== "undefined" &&
