@@ -15,6 +15,7 @@ import { useThemeStore } from "@/store/theme-store";
 import { getOSPlatform } from "@/utils/misc";
 import { useT } from "@/hooks/use-i18n";
 import ModeSelectionDialog from "@/components/mode-selection-dialog";
+import SimpleModeAuthDialog from "@/components/simple-mode/auth-dialog";
 import { Tabs } from "app-tabs";
 import { ArrowLeftRight, HomeIcon } from "lucide-react";
 import { Resizable } from "re-resizable";
@@ -308,6 +309,7 @@ export default function ReaderLayout() {
 
       <SettingsDialog open={isSettingsDialogOpen} onOpenChange={toggleSettingsDialog} /> {/* 设置弹窗 */}
       <ModeSelectionDialog />
+      <SimpleModeAuthDialog />
     </div>
   );
 }

@@ -59,4 +59,5 @@ declare module "foliate-js/vendor/fflate.js" {
 
 interface ImportMetaEnv {
   readonly VITE_AMPLITUDE_API_KEY?: string;
+  readonly VITE_SAGEREAD_SERVER_BASE_URL?: string;
 }

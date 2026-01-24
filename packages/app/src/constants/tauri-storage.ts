@@ -5,4 +5,5 @@ export const tauriStorageKey = {
   layoutStore: "layout-store",
   i18n: "i18n",
   appMode: "app-mode",
+  auth: "auth",
 } as const;

@@ -1,8 +1,13 @@
 import { useChat } from "@/ai/hooks/use-chat";
+import { SimpleModeChatTransport } from "@/ai/simple-mode-chat-transport";
+import { useT } from "@/hooks/use-i18n";
 import { useModelSelector } from "@/hooks/use-model-selector";
 import { trackEvent } from "@/services/analytics-service";
+import { useAuthStore } from "@/store/auth-store";
+import { useModeStore } from "@/store/mode-store";
 import type { UIMessage } from "ai";
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { toast } from "sonner";
 
 function stripThinkBlocks(text: string): string {
   return text.replace(/<think>[\s\S]*?<\/think>\s*/gi, "").trim();
@@ -63,12 +68,21 @@ function stripSelectionEcho(text: string, original: string): string {
 }
 
 export function useSelectionTranslate(bookId?: string) {
+  const { mode } = useModeStore();
+  const { token, quota } = useAuthStore();
+  const isSimpleMode = mode === "simple";
+  const t = useT();
   const { currentModelInstance } = useModelSelector("deepseek", "deepseek-chat", "translate");
+  const simpleModeTransport = useMemo(
+    () => (isSimpleMode ? new SimpleModeChatTransport("translate") : null),
+    [isSimpleMode],
+  );
   const { messages, status, error, sendMessage, setMessages, stop } = useChat(currentModelInstance || "deepseek-chat", {
     messages: [],
     chatContext: {
       activeBookId: bookId,
     },
+    transport: simpleModeTransport ?? undefined,
   });
   const selectionRef = useRef("");
   const requestStartRef = useRef<number | null>(null);
@@ -78,6 +92,16 @@ export function useSelectionTranslate(bookId?: string) {
   const translate = useCallback(
     (selectedText: string, question: string) => {
       if (!selectedText || !question) return;
+      if (isSimpleMode) {
+        if (!token) {
+          toast.error(t("auth.required", "请先注册后使用"));
+          return;
+        }
+        if (quota && quota.remainingCount <= 0) {
+          toast.error(t("quota.exhausted", "额度已用完，暂不可用"));
+          return;
+        }
+      }
       selectionRef.current = selectedText;
       stop();
       setMessages([]);
@@ -88,9 +112,16 @@ export function useSelectionTranslate(bookId?: string) {
           { type: "quote", text: selectedText, source: "引用" },
           { type: "text", text: question },
         ],
+        metadata: { taskType: "translate", chatContext: { activeBookId: bookId } },
+        ...(isSimpleMode
+          ? {
+              metadata: { taskType: "translate", chatContext: { activeBookId: bookId } },
+              body: { taskType: "translate", chatContext: { activeBookId: bookId } },
+            }
+          : {}),
       });
     },
-    [sendMessage, setMessages, stop],
+    [bookId, isSimpleMode, quota, sendMessage, setMessages, stop, t, token],
   );
 
   const reset = useCallback(() => {

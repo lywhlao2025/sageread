@@ -294,7 +294,6 @@ const Annotator: React.FC = () => {
           }}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <div className="text-xs text-neutral-500">{t("reader.action.translate")}</div>
           <div
             className="mt-2 overflow-y-auto whitespace-pre-wrap text-sm text-neutral-800 dark:text-neutral-100"
             style={{ maxHeight: translatePopupHeight - 32 }}

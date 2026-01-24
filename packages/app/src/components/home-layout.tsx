@@ -1,4 +1,5 @@
 import SettingsDialog from "@/components/settings/settings-dialog";
+import SimpleModeAuthDialog from "@/components/simple-mode/auth-dialog";
 import { useBookUpload } from "@/hooks/use-book-upload";
 import { useSafeAreaInsets } from "@/hooks/use-safe-areaInsets";
 import EmbeddingModelPrompt from "@/pages/library/components/embedding-model-prompt";
@@ -308,6 +309,7 @@ const HomeLayout = () => {
         onCancel={handleCancelEmbeddingPrompt}
         onNeverAsk={handleNeverAskEmbeddingPrompt}
       />
+      <SimpleModeAuthDialog />
     </div>
   );
 };

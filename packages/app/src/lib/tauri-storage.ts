@@ -14,6 +14,28 @@ interface PendingWrite {
   value: string;
 }
 
+const isTauri = typeof window !== "undefined" && Boolean((window as any).__TAURI__?.invoke);
+const webStorage: StateStorage = {
+  getItem: async (name: string): Promise<string | null> => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+    return window.localStorage.getItem(name);
+  },
+  setItem: async (name: string, value: string): Promise<void> => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem(name, value);
+  },
+  removeItem: async (name: string): Promise<void> => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.removeItem(name);
+  },
+};
+
 const pendingWrites = new Map<string, PendingWrite>();
 
 const debouncedWrite = (name: string, filePath: string, value: string) => {
@@ -64,7 +86,8 @@ const getStorageFile = async (name: string): Promise<string> => {
   return `${configDir}/${name}.json`;
 };
 
-export const tauriStorage: StateStorage = {
+export const tauriStorage: StateStorage = isTauri
+  ? {
   getItem: async (name: string): Promise<string | null> => {
     try {
       const filePath = await getStorageFile(name);
@@ -97,7 +120,8 @@ export const tauriStorage: StateStorage = {
   },
 
   removeItem: async (name: string): Promise<void> => {},
-};
+}
+  : webStorage;
 
 const ensureDirectory = async (dirPath: string) => {
   if (!(await exists(dirPath))) {
@@ -106,6 +130,9 @@ const ensureDirectory = async (dirPath: string) => {
 };
 
 const createStateStorage = (resolve: StoragePathResolver): StateStorage => {
+  if (!isTauri) {
+    return webStorage;
+  }
   return {
     getItem: async (name: string) => {
       try {

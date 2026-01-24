@@ -23,6 +23,7 @@
         "resizable": true,
         "fullscreen": false,
         "center": true,
+        "devtools": true,
         "hiddenTitle": true,
         "transparent": true,
         "trafficLightPosition": {

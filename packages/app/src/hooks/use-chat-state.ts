@@ -1,5 +1,7 @@
 import { useChat } from "@/ai/hooks/use-chat";
+import { SimpleModeChatTransport } from "@/ai/simple-mode-chat-transport";
 import { useForceUpdate } from "@/hooks/use-force-update";
+import { useT } from "@/hooks/use-i18n";
 import { useModelSelector } from "@/hooks/use-model-selector";
 import type { ReasoningTimes } from "@/hooks/use-reasoning-timer";
 import { useTextEventHandler } from "@/hooks/use-text-event";
@@ -13,12 +15,14 @@ import {
   getThreadContext,
   updateThreadContext,
 } from "@/services/thread-service";
+import { useAuthStore } from "@/store/auth-store";
+import { useModeStore } from "@/store/mode-store";
 import { type SelectedModel, useProviderStore } from "@/store/provider-store";
 import { useThreadStore } from "@/store/thread-store";
 import type { ChatReference, MessageMetadata } from "@/types/message";
 import type { Thread, ThreadSummary } from "@/types/thread";
 import type { UIMessage } from "ai";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export interface UseChatStateReturn {
   // 基础状态
@@ -88,6 +92,10 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
   const currentThread = options.currentThread !== undefined ? options.currentThread : globalThreadStore.currentThread;
   const setCurrentThread = options.setCurrentThread || globalThreadStore.setCurrentThread;
   const forceUpdate = useForceUpdate();
+  const { mode } = useModeStore();
+  const { token, quota } = useAuthStore();
+  const isSimpleMode = mode === "simple";
+  const t = useT();
 
   const messagesRef = useRef<UIMessage[]>([]);
   const reasoningTimesRef = useRef<{ [messageId: string]: ReasoningTimes }>({});
@@ -98,6 +106,10 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
   };
 
   const { selectedModel, setSelectedModel, currentModelInstance } = useModelSelector("deepseek", "deepseek-chat");
+  const simpleModeTransport = useMemo(
+    () => (isSimpleMode ? new SimpleModeChatTransport() : null),
+    [isSimpleMode],
+  );
 
   const { messages, status, error, stop, setMessages, sendMessage, clearError, regenerate } = useChat(
     currentModelInstance || "deepseek-chat",
@@ -105,6 +117,7 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
       experimental_throttle: 50,
       messages: [],
       chatContext,
+      transport: simpleModeTransport ?? undefined,
       onError: (error) => {
         console.error("Error:", error);
       },
@@ -384,6 +397,17 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
 
       setDisplayError(null);
 
+      if (isSimpleMode) {
+        if (!token) {
+          setDisplayError(new Error(t("auth.required", "请先注册后使用")));
+          return;
+        }
+        if (quota && quota.remainingCount <= 0) {
+          setDisplayError(new Error(t("quota.exhausted", "额度已用完，暂不可用")));
+          return;
+        }
+      }
+
       const messageParts = buildMessageParts(trimmedInput, referenceSnapshot);
 
       if (messages.length === 0 && !currentThread) {
@@ -403,7 +427,10 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
       try {
         generateSemanticContextAsync(trimmedInput);
         requestStartRef.current = Date.now();
-        await sendMessage({ parts: messageParts });
+        await sendMessage({
+          parts: messageParts,
+          ...(isSimpleMode ? { metadata: { taskType: "chat", chatContext } } : {}),
+        });
         setMessages((prev) => {
           if (!Array.isArray(prev) || prev.length === 0) {
             return prev;
@@ -441,7 +468,12 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
       currentThread,
       activeBookId,
       buildMessageParts,
+      chatContext,
       generateSemanticContextAsync,
+      isSimpleMode,
+      quota,
+      t,
+      token,
       sendMessage,
       setCurrentThread,
       setMessages,
