@@ -925,6 +925,16 @@ export const I18N_DICT: I18nDict = {
     de: "{count} übrig",
     "pt-BR": "Restam {count}",
   },
+  "quota.usedOfTotal": {
+    zh: "已用 {used}/{total}",
+    en: "Used {used}/{total}",
+    ja: "使用済み {used}/{total}",
+    ko: "사용 {used}/{total}",
+    es: "Usado {used}/{total}",
+    fr: "Utilisé {used}/{total}",
+    de: "Verbraucht {used}/{total}",
+    "pt-BR": "Usado {used}/{total}",
+  },
   "quota.exhausted": {
     zh: "额度已用完，暂不可用",
     en: "Quota used up. Unavailable",

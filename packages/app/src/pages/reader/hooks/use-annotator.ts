@@ -93,7 +93,18 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
   const publicHighlightRangeKey = useRef<string | null>(null);
 
   const popupPadding = 10;
-  const annotPopupWidth = Math.min(globalViewSettings?.vertical ? 320 : 390, window.innerWidth - 2 * popupPadding);
+  const annotPopupBaseWidthByLocale = {
+    zh: 350,
+    ja: 350,
+    ko: 350,
+    en: 400,
+    es: 400,
+    fr: 400,
+    de: 420,
+    "pt-BR": 420,
+  } as const;
+  const annotPopupBaseWidth = globalViewSettings?.vertical ? 320 : annotPopupBaseWidthByLocale[locale] ?? 390;
+  const annotPopupWidth = Math.min(annotPopupBaseWidth, window.innerWidth - 2 * popupPadding);
   const annotPopupHeight = 36;
   const translatePopupWidth = Math.min(360, window.innerWidth - 2 * popupPadding);
   const translatePopupHeight = 240;

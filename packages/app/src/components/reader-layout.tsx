@@ -16,13 +16,15 @@ import { getOSPlatform } from "@/utils/misc";
 import { useT } from "@/hooks/use-i18n";
 import ModeSelectionDialog from "@/components/mode-selection-dialog";
 import SimpleModeAuthDialog from "@/components/simple-mode/auth-dialog";
+import SimpleModeQuotaBattery from "@/components/simple-mode/quota-battery";
 import { Tabs } from "app-tabs";
-import { ArrowLeftRight, HomeIcon } from "lucide-react";
+import { HomeIcon } from "lucide-react";
 import { Resizable } from "re-resizable";
 import { useEffect, useRef, useState } from "react";
 import { Menu } from "@tauri-apps/api/menu";
 import { LogicalPosition } from "@tauri-apps/api/window";
-import { trackEvent } from "@/services/analytics-service";
+import { useAuthStore } from "@/store/auth-store";
+import { fetchQuota } from "@/services/simple-mode-service";
 
 export default function ReaderLayout() {
   useFontEvents(); // 监听系统字体变更事件，确保自定义字体加载后立即生效
@@ -43,8 +45,9 @@ export default function ReaderLayout() {
   } = useLayoutStore(); // 读取布局相关状态
   const { isDarkMode, swapSidebars } = useThemeStore(); // 读取主题与侧栏位置交换配置
   const { isSettingsDialogOpen, toggleSettingsDialog } = useAppSettingsStore(); // 设置弹窗开关状态
-  const { mode, setMode } = useModeStore();
+  const { mode } = useModeStore();
   const t = useT();
+  const { token, quota, setQuota } = useAuthStore();
 
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 记录窗口大小调整的定时器句柄
   const [showOverlay, setShowOverlay] = useState(false); // 控制调整大小时的遮罩显示
@@ -53,12 +56,6 @@ export default function ReaderLayout() {
   const isSimpleMode = mode === "simple";
   const resolvedSwapSidebars = isSimpleMode ? false : swapSidebars;
   const showNotepadSidebar = isNotepadVisible;
-  const handleToggleMode = () => {
-    const nextMode = isSimpleMode ? "classic" : "simple";
-    setMode(nextMode);
-    trackEvent("switch_mode", { from: isSimpleMode ? "simple" : "classic", to: nextMode, source: "topbar" });
-  };
-
   const handleTabContextMenu = async (tabId: string, event: MouseEvent) => {
     event.preventDefault();
     const tabIndex = tabs.findIndex((tab) => tab.id === tabId);
@@ -116,6 +113,15 @@ export default function ReaderLayout() {
   }, []); // 只在挂载/卸载时执行
 
   useEffect(() => {
+    if (!isSimpleMode || !token || quota) return;
+    fetchQuota()
+      .then((data) => setQuota(data))
+      .catch((error) => {
+        console.warn("Failed to fetch quota:", error);
+      });
+  }, [isSimpleMode, quota, setQuota, token]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const isCloseShortcut =
         (event.metaKey && event.key === "w" && event.code === "KeyW") || // macOS 快捷关闭标签
@@ -156,14 +162,7 @@ export default function ReaderLayout() {
           }
           pinnedRight={
             <div className="flex items-center gap-1"> {/* 固定右侧的通知和窗口控制 */}
-              <button
-                type="button"
-                className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-600 transition hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
-                onClick={handleToggleMode}
-                title={t("mode.toggle", "切换模式")}
-              >
-                <ArrowLeftRight className="h-4 w-4" />
-              </button>
+              <SimpleModeQuotaBattery />
               <LanguageSwitcher />
               <NotificationDropdown />
               <WindowControls />

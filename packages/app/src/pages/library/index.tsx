@@ -8,8 +8,10 @@ import { useTheme } from "@/hooks/use-theme";
 import { useUICSS } from "@/hooks/use-ui-css";
 import { useAppSettingsStore } from "@/store/app-settings-store";
 import { useLibraryStore } from "@/store/library-store";
+import { useModeStore } from "@/store/mode-store";
+import { trackEvent } from "@/services/analytics-service";
 import clsx from "clsx";
-import { Plus, Upload as UploadIcon } from "lucide-react";
+import { ArrowLeftRight, Plus, Upload as UploadIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import BookItem from "./components/book-item";
 import SearchToggle from "./components/search-toggle";
@@ -22,6 +24,7 @@ export default function NewLibraryPage() {
   const t = useT();
   const { searchQuery, setSearchQuery, booksWithStatus, isLoading, refreshBooks } = useLibraryStore();
   const { isSettingsDialogOpen, toggleSettingsDialog } = useAppSettingsStore();
+  const { mode, setMode } = useModeStore();
   const insets = useSafeAreaInsets();
   const isInitiating = useRef(false);
   const [libraryLoaded, setLibraryLoaded] = useState(false);
@@ -62,6 +65,13 @@ export default function NewLibraryPage() {
   const visibleBooks = filteredBooks;
   const hasBooks = libraryLoaded && visibleBooks.length > 0;
   const hasLibraryBooks = libraryLoaded && booksWithStatus.length > 0;
+  const isSimpleMode = mode === "simple";
+
+  const handleToggleMode = () => {
+    const nextMode = isSimpleMode ? "classic" : "simple";
+    setMode(nextMode);
+    trackEvent("switch_mode", { from: isSimpleMode ? "simple" : "classic", to: nextMode, source: "library" });
+  };
 
   if (!insets || !libraryLoaded) {
     return null;
@@ -190,6 +200,14 @@ export default function NewLibraryPage() {
       </div>
 
       <SettingsDialog open={isSettingsDialogOpen} onOpenChange={toggleSettingsDialog} />
+      <button
+        type="button"
+        className="fixed bottom-6 right-6 flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200 bg-white shadow-lg transition hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700"
+        onClick={handleToggleMode}
+        title={t("mode.toggle", "切换模式")}
+      >
+        <ArrowLeftRight className="h-5 w-5 text-neutral-700 dark:text-neutral-200" />
+      </button>
     </div>
   );
 }
