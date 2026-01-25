@@ -300,7 +300,11 @@ const Annotator: React.FC = () => {
           >
             {translateContent ||
               (translateStatus === "streaming" || translateStatus === "submitted" ? t("chat.loading") : null) ||
-              (translateError ? "Translation failed." : "")}
+              (translateError
+                ? translateError instanceof Error
+                  ? translateError.message
+                  : String(translateError)
+                : "")}
           </div>
         </div>
       )}

@@ -533,13 +533,10 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
   const handleTranslate = useCallback(() => { // 处理翻译请求
     if (!selection || !selection.text) return; // 无选中内容时退出
     const targetLang = resolveTranslateTargetLang(undefined, locale);
-    const question = `${t("reader.translateQuoted", "请将引用内容翻译成{lang}。", {
+    const question = t("reader.translateQuoted", "请将引用内容翻译成{lang}。", {
       lang: targetLang,
-      text: selection.text,
-    })}\n\n${t(
-      "reader.translateDirectives",
-      "Answer the question directly.\nDo not include analysis, reasoning, thoughts, or explanations.\nOnly output the final result.",
-    )}`; // 构造翻译提问
+      text: "",
+    }).trim(); // 构造翻译提问
 
     const gridFrame = document.querySelector(`#gridcell-${bookId}`);
     if (!gridFrame) return;

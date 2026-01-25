@@ -262,10 +262,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
   const handleTranslate = () => {
     if (!selectedText) return;
     const targetLang = resolveTranslateTargetLang(undefined, locale);
-    const prompt = `${t("reader.translateTextPrompt", undefined, { lang: targetLang, text: selectedText })}\n\n${t(
-      "reader.translateDirectives",
-      "Answer the question directly.\nDo not include analysis, reasoning, thoughts, or explanations.\nOnly output the final result.",
-    )}`;
+    const prompt = t("reader.translateTextPrompt", undefined, { lang: targetLang, text: "" }).trim();
     if (popupPos) {
       setTranslatePopupPos({ x: popupPos.x, y: popupPos.y + 8 });
     }
@@ -433,7 +430,11 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
           <div className="mt-2 max-h-[188px] overflow-y-auto whitespace-pre-wrap text-sm text-neutral-800 dark:text-neutral-100">
             {translateContent ||
               (translateStatus === "streaming" || translateStatus === "submitted" ? t("chat.loading") : null) ||
-              (translateError ? "Translation failed." : "")}
+              (translateError
+                ? translateError instanceof Error
+                  ? translateError.message
+                  : String(translateError)
+                : "")}
           </div>
         </div>
       )}

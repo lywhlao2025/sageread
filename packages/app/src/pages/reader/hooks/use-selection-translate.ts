@@ -143,6 +143,7 @@ export function useSelectionTranslate(bookId?: string) {
     if (error) {
       const durationMs = Math.max(0, Date.now() - requestStart);
       trackEvent("task_failed", { task_type: "translate", duration_ms: durationMs, error_type: "unknown" });
+      console.error("translate.failed", error);
       trackedRequestRef.current = requestId;
       requestStartRef.current = null;
       return;

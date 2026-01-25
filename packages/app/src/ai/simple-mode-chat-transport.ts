@@ -115,6 +115,18 @@ export class SimpleModeChatTransport implements ChatTransport<UIMessage> {
     const metadataContext = (options.metadata as any)?.chatContext as ChatContext | undefined;
     const bodyContext = (options.body as any)?.chatContext as ChatContext | undefined;
     const chatContext = metadataContext || bodyContext;
+    const lastUserMessage = Array.isArray(options.messages)
+      ? [...options.messages].reverse().find((message) => message.role === "user")
+      : undefined;
+    const messageTaskType = (lastUserMessage as any)?.metadata?.taskType;
+    const rawTaskType =
+      messageTaskType ??
+      (options.metadata as any)?.taskType ??
+      (options.body as any)?.taskType ??
+      (options.data as any)?.taskType;
+    const taskType =
+      this.fixedTaskType ||
+      (rawTaskType === "translate" || isTranslatePrompt(lastUserMessage) ? "translate" : "chat");
     const processedMessages = processQuoteMessages(options.messages || []);
     const selectedMessages = selectValidMessages(processedMessages, 8);
     const systemPrompt =
@@ -136,19 +148,6 @@ export class SimpleModeChatTransport implements ChatTransport<UIMessage> {
         typeof (globalThis as any).crypto.randomUUID === "function" &&
         (globalThis as any).crypto.randomUUID()) ||
       `simple-${Date.now()}`;
-
-    const lastUserMessage = Array.isArray(options.messages)
-      ? [...options.messages].reverse().find((message) => message.role === "user")
-      : undefined;
-    const messageTaskType = (lastUserMessage as any)?.metadata?.taskType;
-    const rawTaskType =
-      messageTaskType ??
-      (options.metadata as any)?.taskType ??
-      (options.body as any)?.taskType ??
-      (options.data as any)?.taskType;
-    const taskType =
-      this.fixedTaskType ||
-      (rawTaskType === "translate" || isTranslatePrompt(lastUserMessage) ? "translate" : "chat");
 
     try {
       const stream = streamSimpleModeLlm({
