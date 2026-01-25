@@ -30,6 +30,10 @@ function normalizeText(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
+function stripLeadingBlockquotes(text: string): string {
+  return text.replace(/^\s*> ?/gm, "").trim();
+}
+
 function stripSelectionEcho(text: string, original: string): string {
   if (!original) return text;
   const normalizedOriginal = normalizeText(original);
@@ -132,7 +136,7 @@ export function useSelectionTranslate(bookId?: string) {
   const content = useMemo(() => {
     const raw = stripThinkBlocks(getLatestAssistantText(messages));
     const filtered = stripSelectionEcho(raw, selectionRef.current);
-    return filtered || raw;
+    return stripLeadingBlockquotes(filtered || raw);
   }, [messages]);
 
   useEffect(() => {

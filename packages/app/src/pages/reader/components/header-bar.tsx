@@ -204,7 +204,7 @@ const HeaderBar = () => {
           }`}
         >
           {isText ? <TextSearchDropdown /> : <SearchDropdown />}
-          {!isSimpleMode && <SettingsDropdown />}
+          <SettingsDropdown />
           <div className="cursor-pointer" onClick={resolvedSwapSidebars ? toggleNotepadSidebar : toggleChatSidebar}>
             {(resolvedSwapSidebars ? isNotepadVisible : isChatVisible) ? (
               <TbLayoutSidebarRightCollapseFilled className="size-5 text-neutral-700 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200" />

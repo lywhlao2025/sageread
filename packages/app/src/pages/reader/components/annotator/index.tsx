@@ -11,6 +11,7 @@ import { PiHighlighterFill } from "react-icons/pi";
 import { RiDeleteBinLine } from "react-icons/ri";
 import { eventDispatcher } from "@/utils/event";
 import type { TextSelection } from "@/utils/sel";
+import { isCJKEnv } from "@/utils/misc";
 import { useAnnotator } from "../../hooks/use-annotator";
 import { useFoliateEvents } from "../../hooks/use-foliate-events";
 import { useTextSelector } from "../../hooks/use-text-selector";
@@ -66,6 +67,22 @@ const Annotator: React.FC = () => {
   const view = useReaderStore((state) => state.view);
   const isText = useReaderStore((state) => state.bookData?.book?.format === "TXT");
   const globalViewSettings = settings.globalViewSettings;
+  const isCJK = isCJKEnv();
+  const translateFontFamily = globalViewSettings?.overrideFont
+    ? isCJK
+      ? globalViewSettings.defaultCJKFont
+      : globalViewSettings.defaultFont === "Sans-serif"
+        ? globalViewSettings.sansSerifFont
+        : globalViewSettings.serifFont
+    : undefined;
+  const translateTextStyle: React.CSSProperties = {
+    fontSize: globalViewSettings?.defaultFontSize ? `${globalViewSettings.defaultFontSize}px` : undefined,
+    lineHeight: globalViewSettings?.lineHeight,
+    fontFamily: translateFontFamily,
+    fontWeight: globalViewSettings?.fontWeight,
+    letterSpacing: globalViewSettings?.letterSpacing ? `${globalViewSettings.letterSpacing}px` : undefined,
+    wordSpacing: globalViewSettings?.wordSpacing ? `${globalViewSettings.wordSpacing}px` : undefined,
+  };
 
   // 使用 use-annotator hook
   const {
@@ -281,12 +298,13 @@ const Annotator: React.FC = () => {
       {showTranslatePopup && translatePopupPosition && (
         <div
           ref={translatePopupRef}
-          className="reader-translate-popup pointer-events-auto absolute z-50 w-[360px] max-w-[80vw] rounded-lg border border-neutral-200 bg-white p-3 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+          className="reader-translate-popup pointer-events-auto absolute z-50 max-w-[80vw] rounded-lg border border-neutral-200 bg-white p-3 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
           style={{
             left: `${translatePopupPosition.point.x}px`,
             top: `${translatePopupPosition.point.y}px`,
-            width: `${translatePopupWidth}px`,
-            height: `${translatePopupHeight}px`,
+            width: "fit-content",
+            minWidth: `${Math.min(220, translatePopupWidth)}px`,
+            maxWidth: `${translatePopupWidth}px`,
             transform:
               translatePopupPosition.point.y - translatePopupHeight - 4 < 0
                 ? "translate(-50%, 4px)"
@@ -296,7 +314,7 @@ const Annotator: React.FC = () => {
         >
           <div
             className="mt-2 overflow-y-auto whitespace-pre-wrap text-sm text-neutral-800 dark:text-neutral-100"
-            style={{ maxHeight: translatePopupHeight - 32 }}
+            style={{ maxHeight: translatePopupHeight - 32, ...translateTextStyle }}
           >
             {translateContent ||
               (translateStatus === "streaming" || translateStatus === "submitted" ? t("chat.loading") : null) ||

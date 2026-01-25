@@ -96,7 +96,7 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
   const annotPopupWidth = Math.min(globalViewSettings?.vertical ? 320 : 390, window.innerWidth - 2 * popupPadding);
   const annotPopupHeight = 36;
   const translatePopupWidth = Math.min(360, window.innerWidth - 2 * popupPadding);
-  const translatePopupHeight = 220;
+  const translatePopupHeight = 240;
   const isText = bookData?.book?.format === "TXT";
   const isPdf = bookData?.book?.format === "PDF";
 
