@@ -13,15 +13,15 @@ const PopupButton: React.FC<PopupButtonProps> = ({ label, Icon, onClick, isVerti
   };
 
   return (
-    <div className="flex items-center justify-center">
+    <div className="flex min-w-0 items-center justify-center">
       <button
         onClick={handleClick}
-        className={`flex cursor-pointer items-center justify-center gap-1 rounded p-0 transition-colors duration-200 hover:bg-neutral-100 dark:hover:bg-neutral-700 ${
+        className={`flex min-w-0 max-w-full cursor-pointer items-center justify-center gap-1 overflow-hidden rounded p-0 transition-colors duration-200 hover:bg-neutral-100 dark:hover:bg-neutral-700 ${
           isVertical ? "h-auto w-6 flex-col px-0 py-1" : "h-6 min-w-6 px-1"
         }`}
       >
         <Icon size={16} />
-        {label && <span className="text-sm whitespace-nowrap">{label}</span>}
+        {label && <span className="min-w-0 max-w-full truncate text-sm whitespace-nowrap">{label}</span>}
       </button>
     </div>
   );
