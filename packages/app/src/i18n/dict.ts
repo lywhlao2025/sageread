@@ -935,6 +935,16 @@ export const I18N_DICT: I18nDict = {
     de: "Verbraucht {used}/{total}",
     "pt-BR": "Usado {used}/{total}",
   },
+  "quota.recharge": {
+    zh: "充值",
+    en: "Recharge",
+    ja: "チャージ",
+    ko: "충전",
+    es: "Recargar",
+    fr: "Recharger",
+    de: "Aufladen",
+    "pt-BR": "Recarregar",
+  },
   "quota.exhausted": {
     zh: "额度已用完，暂不可用",
     en: "Quota used up. Unavailable",

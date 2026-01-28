@@ -310,6 +310,8 @@ const Annotator: React.FC = () => {
                 ? "translate(-50%, 4px)"
                 : "translate(-50%, calc(-100% - 4px))",
           }}
+          onPointerDownCapture={(e) => e.stopPropagation()}
+          onMouseDownCapture={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
         >
           <div
