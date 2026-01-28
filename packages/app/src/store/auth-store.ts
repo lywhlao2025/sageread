@@ -15,10 +15,13 @@ interface AuthStore {
   phone: string | null;
   quota: QuotaSnapshot | null;
   hasHydrated: boolean;
+  isSwitching: boolean;
   setHasHydrated: (hasHydrated: boolean) => void;
   setAuth: (payload: { token: string; userId: number; phone: string }) => void;
   clearAuth: () => void;
   setQuota: (quota: QuotaSnapshot | null) => void;
+  startSwitchUser: () => void;
+  stopSwitchUser: () => void;
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -29,10 +32,13 @@ export const useAuthStore = create<AuthStore>()(
       phone: null,
       quota: null,
       hasHydrated: false,
+      isSwitching: false,
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
       setAuth: ({ token, userId, phone }) => set({ token, userId, phone }),
       clearAuth: () => set({ token: null, userId: null, phone: null, quota: null }),
       setQuota: (quota) => set({ quota }),
+      startSwitchUser: () => set({ isSwitching: true }),
+      stopSwitchUser: () => set({ isSwitching: false }),
     }),
     {
       name: tauriStorageKey.auth,

@@ -1,9 +1,9 @@
 import HomeLayout from "@/components/home-layout";
 import LanguageSwitcher from "@/components/language-switcher";
 import { NotepadContainer } from "@/components/notepad";
-import NotificationDropdown from "@/components/notification-dropdown";
 import SettingsDialog from "@/components/settings/settings-dialog";
 import SideChat from "@/components/side-chat";
+import UserMenu from "@/components/user-menu";
 import WindowControls from "@/components/window-controls";
 import { useFontEvents } from "@/hooks/use-font-events";
 import ReaderViewer from "@/pages/reader";
@@ -164,7 +164,7 @@ export default function ReaderLayout() {
             <div className="flex items-center gap-1"> {/* 固定右侧的通知和窗口控制 */}
               <SimpleModeQuotaBattery />
               <LanguageSwitcher />
-              <NotificationDropdown />
+              <UserMenu />
               <WindowControls />
             </div>
           }

@@ -18,9 +18,11 @@ const PHONE_REGEX = /^\d{6,15}$/;
 
 export default function SimpleModeAuthDialog() {
   const { mode } = useModeStore();
-  const { token, hasHydrated, setAuth, setQuota } = useAuthStore();
-  const isOpen = hasHydrated && mode === "simple" && !token;
+  const { token, hasHydrated, isSwitching, setAuth, setQuota, stopSwitchUser } = useAuthStore();
+  const shouldOpen = hasHydrated && mode === "simple" && (!token || isSwitching);
+  const [dismissed, setDismissed] = useState(false);
   const t = useT();
+  const canClose = Boolean(token);
 
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
@@ -29,13 +31,14 @@ export default function SimpleModeAuthDialog() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!isOpen) {
+    if (!shouldOpen) {
       setCode("");
       setCooldown(0);
       setSending(false);
       setSubmitting(false);
+      setDismissed(false);
     }
-  }, [isOpen]);
+  }, [shouldOpen]);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -91,6 +94,7 @@ export default function SimpleModeAuthDialog() {
       }
 
       setAuth({ token: auth.token, userId: auth.userId, phone: auth.phone });
+      stopSwitchUser();
       try {
         const quota = await fetchQuota();
         setQuota(quota);
@@ -107,9 +111,21 @@ export default function SimpleModeAuthDialog() {
   }, [code, phone, setAuth, setQuota, t]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={() => {}}>
-      <DialogContent showCloseButton={false} className="max-w-[420px] p-0">
-        <DialogHeader className="border-0 px-6 pt-6 pb-0">
+    <Dialog
+      open={shouldOpen && !dismissed}
+      onOpenChange={(open) => {
+        if (!open) {
+          setDismissed(true);
+          stopSwitchUser();
+        }
+      }}
+    >
+      <DialogContent
+        showCloseButton={false}
+        disableOutsideClose={!canClose}
+        className="max-w-[420px] p-0"
+      >
+        <DialogHeader showCloseButton={canClose} className="border-0 px-6 pt-6 pb-0">
           <DialogTitle>{t("auth.title", "手机号注册领取免费额度")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 px-6 pb-6 pt-2">
