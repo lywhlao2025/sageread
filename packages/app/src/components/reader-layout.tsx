@@ -51,6 +51,7 @@ export default function ReaderLayout() {
 
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 记录窗口大小调整的定时器句柄
   const [showOverlay, setShowOverlay] = useState(false); // 控制调整大小时的遮罩显示
+  const quotaPollRef = useRef(false);
 
   const isWindows = getOSPlatform() === "windows"; // 判断是否为 Windows，用于 Tabs 左侧留白
   const isSimpleMode = mode === "simple";
@@ -120,6 +121,35 @@ export default function ReaderLayout() {
         console.warn("Failed to fetch quota:", error);
       });
   }, [isSimpleMode, quota, setQuota, token]);
+
+  useEffect(() => {
+    if (!isSimpleMode || !token) {
+      return;
+    }
+
+    const pollQuota = async () => {
+      if (quotaPollRef.current) return;
+      quotaPollRef.current = true;
+      try {
+        const data = await fetchQuota();
+        setQuota(data);
+      } catch (error) {
+        try {
+          const data = await fetchQuota();
+          setQuota(data);
+        } catch (retryError) {
+          console.warn("Failed to poll quota:", retryError);
+        }
+      } finally {
+        quotaPollRef.current = false;
+      }
+    };
+
+    pollQuota();
+    const intervalMs = import.meta.env.DEV ? 60 * 1000 : 5 * 60 * 1000;
+    const timer = window.setInterval(pollQuota, intervalMs);
+    return () => window.clearInterval(timer);
+  }, [isSimpleMode, setQuota, token]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

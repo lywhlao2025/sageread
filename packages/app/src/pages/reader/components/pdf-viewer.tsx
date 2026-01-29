@@ -5,6 +5,8 @@ import { useLocale, useT } from "@/hooks/use-i18n";
 import { useReaderStore } from "@/pages/reader/components/reader-provider";
 import { useSelectionTranslate } from "@/pages/reader/hooks/use-selection-translate";
 import { useAppSettingsStore } from "@/store/app-settings-store";
+import { useAuthStore } from "@/store/auth-store";
+import { useModeStore } from "@/store/mode-store";
 import { isCJKEnv, resolveTranslateTargetLang } from "@/utils/misc";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FiCopy, FiHelpCircle, FiMessageCircle } from "react-icons/fi";
@@ -16,6 +18,7 @@ import AskAIPopup from "./annotator/ask-ai-popup";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf";
 import { EventBus, PDFLinkService, PDFViewer } from "pdfjs-dist/legacy/web/pdf_viewer";
 import "pdfjs-dist/legacy/web/pdf_viewer.css";
+import { toast } from "sonner";
 // Vite will emit the worker file and give us a URL
 // biome-ignore lint/nursery/noImportAssign: asset import
 // @ts-ignore
@@ -35,6 +38,8 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
   const t = useT();
   const locale = useLocale();
   const { settings } = useAppSettingsStore();
+  const { mode } = useModeStore();
+  const { token, quota } = useAuthStore();
   const { handleCreateNote } = useNotepad();
   const bookData = useReaderStore((state) => state.bookData);
   const queryClient = useQueryClient();
@@ -281,6 +286,16 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
 
   const handleTranslate = () => {
     if (!selectedText) return;
+    if (mode === "simple") {
+      if (!token) {
+        toast.error(t("auth.required", "请先注册后使用"));
+        return;
+      }
+      if (quota && quota.remainingCount <= 0) {
+        toast.error(t("quota.exhausted", "额度已用完，暂不可用"));
+        return;
+      }
+    }
     const targetLang = resolveTranslateTargetLang(undefined, locale);
     const prompt = t("reader.translateTextPrompt", undefined, { lang: targetLang, text: "" }).trim();
     if (popupPos) {

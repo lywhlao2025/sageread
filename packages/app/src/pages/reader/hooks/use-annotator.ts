@@ -11,6 +11,8 @@ import {
 } from "@/services/public-highlights-service";
 import { iframeService } from "@/services/iframe-service";
 import { useAppSettingsStore } from "@/store/app-settings-store";
+import { useAuthStore } from "@/store/auth-store";
+import { useModeStore } from "@/store/mode-store";
 import type { BookNote, HighlightColor, HighlightStyle } from "@/types/book";
 import type { BookMeta } from "@/types/note";
 import { type Position, type TextSelection, getPopupPosition, getPosition } from "@/utils/sel";
@@ -64,6 +66,8 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
   const t = useT();
   const locale = useLocale();
   const { settings } = useAppSettingsStore();
+  const { mode } = useModeStore();
+  const { token, quota } = useAuthStore();
   const config = useReaderStore((state) => state.config)!;
   const progress = useReaderStore((state) => state.progress)!;
   const view = useReaderStore((state) => state.view);
@@ -543,6 +547,16 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
 
   const handleTranslate = useCallback(() => { // 处理翻译请求
     if (!selection || !selection.text) return; // 无选中内容时退出
+    if (mode === "simple") {
+      if (!token) {
+        toast.error(t("auth.required", "请先注册后使用"));
+        return;
+      }
+      if (quota && quota.remainingCount <= 0) {
+        toast.error(t("quota.exhausted", "额度已用完，暂不可用"));
+        return;
+      }
+    }
     const targetLang = resolveTranslateTargetLang(undefined, locale);
     const question = t("reader.translateQuoted", "请将引用内容翻译成{lang}。", {
       lang: targetLang,
@@ -582,6 +596,9 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
     bookId,
     locale,
     t,
+    mode,
+    token,
+    quota,
     globalViewSettings?.vertical,
     translate,
     popupPadding,
