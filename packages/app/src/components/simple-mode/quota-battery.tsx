@@ -1,14 +1,17 @@
 import { useT } from "@/hooks/use-i18n";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import aliPayImage from "@/assets/ali_pay.PNG";
 import wechatPayImage from "@/assets/wechat_pay.JPG";
+import { recordUserEvent } from "@/services/simple-mode-service";
 import { useAuthStore } from "@/store/auth-store";
 import { useModeStore } from "@/store/mode-store";
+import { md5 } from "js-md5";
 import { useState } from "react";
 
 export default function SimpleModeQuotaBattery() {
-  const { token, quota } = useAuthStore();
+  const { token, quota, userId } = useAuthStore();
   const { mode } = useModeStore();
   const t = useT();
   const [isRechargeOpen, setIsRechargeOpen] = useState(false);
@@ -26,6 +29,21 @@ export default function SimpleModeQuotaBattery() {
 
   const handleRechargeClick = () => {
     setIsRechargeOpen(true);
+  };
+
+  const handleRechargeDone = async () => {
+    setIsRechargeOpen(false);
+    try {
+      const userIdPart = userId ?? "unknown";
+      const eventId = md5(`${userIdPart}-${Date.now()}-recharge_report-${Math.random()}`);
+      await recordUserEvent({
+        eventId,
+        eventType: "recharge_report",
+        payloadJson: JSON.stringify({ channel: "unknown" }),
+      });
+    } catch (error) {
+      console.warn("Failed to report recharge:", error);
+    }
   };
 
   return (
@@ -88,6 +106,14 @@ export default function SimpleModeQuotaBattery() {
           <p className="text-sm text-neutral-700 dark:text-neutral-200">
             {t("quota.recharge.note", "进行转账，备注手机号，1 元/100 次模型调用服务")}
           </p>
+          <DialogFooter className="justify-center sm:justify-center">
+            <Button
+              onClick={handleRechargeDone}
+              className="bg-emerald-300 text-emerald-950 hover:bg-emerald-200"
+            >
+              {t("quota.recharge.done", "我已转账")}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

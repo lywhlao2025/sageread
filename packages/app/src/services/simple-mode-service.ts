@@ -35,6 +35,11 @@ export interface SimpleModeLlmStreamEvent {
   };
 }
 
+export interface UserEventPayload {
+  eventId: string;
+  createdAt: number;
+}
+
 export class SimpleModeApiError extends Error {
   code: string;
 
@@ -188,6 +193,21 @@ export async function fetchQuota(): Promise<QuotaPayload> {
     "/api/user/quota",
     {
       method: "GET",
+    },
+    true,
+  );
+}
+
+export async function recordUserEvent(params: {
+  eventId: string;
+  eventType: string;
+  payloadJson?: string;
+}): Promise<UserEventPayload> {
+  return requestJson<UserEventPayload>(
+    "/api/user/event",
+    {
+      method: "POST",
+      body: JSON.stringify(params),
     },
     true,
   );
