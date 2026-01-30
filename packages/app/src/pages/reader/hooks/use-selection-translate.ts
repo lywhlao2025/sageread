@@ -76,9 +76,6 @@ export function useSelectionTranslate(bookId?: string) {
           return;
         }
       }
-      if (import.meta.env.DEV) {
-        toast.info("[debug] translate request sent");
-      }
       if (isSimpleMode) {
         void trackUserAction("translate", {
           bookId: bookId ?? undefined,
@@ -115,11 +112,6 @@ export function useSelectionTranslate(bookId?: string) {
   const content = useMemo(() => {
     return getLatestAssistantText(messages);
   }, [messages]);
-
-  useEffect(() => {
-    console.log("[translate] messages snapshot", messages);
-    console.log("[translate] latest content", content);
-  }, [content, messages]);
 
   useEffect(() => {
     const requestId = requestIdRef.current;
