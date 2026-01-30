@@ -10,6 +10,7 @@ import {
   type PublicHighlightResponse,
 } from "@/services/public-highlights-service";
 import { iframeService } from "@/services/iframe-service";
+import { trackUserAction } from "@/services/user-action-service";
 import { useAppSettingsStore } from "@/store/app-settings-store";
 import { useAuthStore } from "@/store/auth-store";
 import { useModeStore } from "@/store/mode-store";
@@ -76,6 +77,7 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
   const { handleCreateNote } = useNotepad();
   const queryClient = useQueryClient();
   const globalViewSettings = settings.globalViewSettings;
+  const isSimpleMode = mode === "simple";
 
   // 状态管理
   const [selection, setSelection] = useState<TextSelection | null>(null);
@@ -431,6 +433,12 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
             void uploadPublicHighlight(updatedAnnotation, selection).catch((error) => {
               console.warn("Failed to upload public highlight:", error);
             });
+            if (isSimpleMode) {
+              void trackUserAction("annotation_update", {
+                bookId,
+                cfi,
+              });
+            }
           } else {
             await deleteBookNote(existingAnnotation.id);
             const updatedAnnotations = annotations.filter((ann) => ann.id !== existingAnnotation.id);
@@ -449,6 +457,12 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
             void removePublicHighlight(existingAnnotation, selection).catch((error) => {
               console.warn("Failed to delete public highlight:", error);
             });
+            if (isSimpleMode) {
+              void trackUserAction("annotation_delete", {
+                bookId,
+                cfi,
+              });
+            }
           }
         } else {
           const ctx = getContextByRange(selection.range, 50);
@@ -484,6 +498,12 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
           void uploadPublicHighlight(newAnnotation, selection).catch((error) => {
             console.warn("Failed to upload public highlight:", error);
           });
+          if (isSimpleMode) {
+            void trackUserAction("annotation_create", {
+              bookId,
+              cfi,
+            });
+          }
         }
       } catch (error) {
         console.error("Failed to handle highlight:", error);
@@ -503,6 +523,7 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
       getEpubSectionInfo,
       uploadPublicHighlight,
       removePublicHighlight,
+      isSimpleMode,
     ],
   );
 

@@ -3,6 +3,7 @@ import { SimpleModeChatTransport } from "@/ai/simple-mode-chat-transport";
 import { useT } from "@/hooks/use-i18n";
 import { useModelSelector } from "@/hooks/use-model-selector";
 import { trackEvent } from "@/services/analytics-service";
+import { trackUserAction } from "@/services/user-action-service";
 import { useAuthStore } from "@/store/auth-store";
 import { useModeStore } from "@/store/mode-store";
 import type { UIMessage } from "ai";
@@ -105,6 +106,12 @@ export function useSelectionTranslate(bookId?: string) {
           toast.error(t("quota.exhausted", "额度已用完，暂不可用"));
           return;
         }
+      }
+      if (isSimpleMode) {
+        void trackUserAction("translate", {
+          bookId: bookId ?? undefined,
+          selectionLength: selectedText.length,
+        });
       }
       selectionRef.current = selectedText;
       stop();

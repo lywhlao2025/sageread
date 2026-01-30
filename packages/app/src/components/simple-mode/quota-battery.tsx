@@ -4,14 +4,13 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import aliPayImage from "@/assets/ali_pay.PNG";
 import wechatPayImage from "@/assets/wechat_pay.JPG";
-import { recordUserEvent } from "@/services/simple-mode-service";
+import { trackUserAction } from "@/services/user-action-service";
 import { useAuthStore } from "@/store/auth-store";
 import { useModeStore } from "@/store/mode-store";
-import { md5 } from "js-md5";
 import { useState } from "react";
 
 export default function SimpleModeQuotaBattery() {
-  const { token, quota, userId } = useAuthStore();
+  const { token, quota } = useAuthStore();
   const { mode } = useModeStore();
   const t = useT();
   const [isRechargeOpen, setIsRechargeOpen] = useState(false);
@@ -34,13 +33,7 @@ export default function SimpleModeQuotaBattery() {
   const handleRechargeDone = async () => {
     setIsRechargeOpen(false);
     try {
-      const userIdPart = userId ?? "unknown";
-      const eventId = md5(`${userIdPart}-${Date.now()}-recharge_report-${Math.random()}`);
-      await recordUserEvent({
-        eventId,
-        eventType: "recharge_report",
-        payloadJson: JSON.stringify({ channel: "unknown" }),
-      });
+      await trackUserAction("recharge", { channel: "unknown" });
     } catch (error) {
       console.warn("Failed to report recharge:", error);
     }

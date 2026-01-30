@@ -25,6 +25,7 @@ import { Menu } from "@tauri-apps/api/menu";
 import { LogicalPosition } from "@tauri-apps/api/window";
 import { useAuthStore } from "@/store/auth-store";
 import { fetchQuota } from "@/services/simple-mode-service";
+import { trackUserAction } from "@/services/user-action-service";
 
 export default function ReaderLayout() {
   useFontEvents(); // 监听系统字体变更事件，确保自定义字体加载后立即生效
@@ -52,6 +53,7 @@ export default function ReaderLayout() {
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 记录窗口大小调整的定时器句柄
   const [showOverlay, setShowOverlay] = useState(false); // 控制调整大小时的遮罩显示
   const quotaPollRef = useRef(false);
+  const lastReadTabRef = useRef<string | null>(null);
 
   const isWindows = getOSPlatform() === "windows"; // 判断是否为 Windows，用于 Tabs 左侧留白
   const isSimpleMode = mode === "simple";
@@ -121,6 +123,22 @@ export default function ReaderLayout() {
         console.warn("Failed to fetch quota:", error);
       });
   }, [isSimpleMode, quota, setQuota, token]);
+
+  useEffect(() => {
+    if (!isSimpleMode || !activeTabId || activeTabId === "home") {
+      return;
+    }
+    if (lastReadTabRef.current === activeTabId) {
+      return;
+    }
+    lastReadTabRef.current = activeTabId;
+    const currentTab = tabs.find((tab) => tab.id === activeTabId);
+    void trackUserAction("read", {
+      bookId: currentTab?.bookId,
+      tabId: activeTabId,
+      source: "tab_active",
+    });
+  }, [activeTabId, isSimpleMode, tabs]);
 
   useEffect(() => {
     if (!isSimpleMode || !token) {

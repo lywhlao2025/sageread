@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useT } from "@/hooks/use-i18n";
 import { trackEvent } from "@/services/analytics-service";
+import { trackUserAction } from "@/services/user-action-service";
 import { type AppMode, useModeStore } from "@/store/mode-store";
 
 export default function ModeSelectionDialog() {
@@ -11,6 +12,11 @@ export default function ModeSelectionDialog() {
   const handleSelect = (nextMode: AppMode) => {
     setMode(nextMode);
     trackEvent("mode_selected", { mode: nextMode, source: "onboarding" });
+    void trackUserAction("switch_mode", {
+      from: mode ?? "unknown",
+      to: nextMode,
+      source: "onboarding",
+    });
   };
 
   return (

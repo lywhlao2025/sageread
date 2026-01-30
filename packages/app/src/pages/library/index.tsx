@@ -10,6 +10,7 @@ import { useAppSettingsStore } from "@/store/app-settings-store";
 import { useLibraryStore } from "@/store/library-store";
 import { useModeStore } from "@/store/mode-store";
 import { trackEvent } from "@/services/analytics-service";
+import { trackUserAction } from "@/services/user-action-service";
 import clsx from "clsx";
 import { ArrowLeftRight, Plus, Upload as UploadIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -69,6 +70,9 @@ export default function NewLibraryPage() {
 
   const handleToggleMode = () => {
     const nextMode = isSimpleMode ? "classic" : "simple";
+    if (isSimpleMode) {
+      void trackUserAction("switch_mode", { from: "simple", to: nextMode, source: "library" });
+    }
     setMode(nextMode);
     trackEvent("switch_mode", { from: isSimpleMode ? "simple" : "classic", to: nextMode, source: "library" });
   };

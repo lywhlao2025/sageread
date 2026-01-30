@@ -106,6 +106,44 @@
 - `task_failed`
   - props: `task_type`, `error_type`
 
+## 用户行为埋点（简约模式专用）
+### 事件模型
+- 统一复用 `user_event` 接口（server 端用户事件模型）。
+- 事件命名：`user_action_xxx`。
+- 仅在“简约模式”上报（经典模式不采集）。
+
+### 事件清单（全量覆盖）
+- `user_action_read`
+  - 触发：进入阅读标签页
+  - payload: `bookId`, `tabId`, `source`
+- `user_action_annotation_create`
+  - 触发：新建标注
+  - payload: `bookId`, `cfi`
+- `user_action_annotation_update`
+  - 触发：更新标注
+  - payload: `bookId`, `cfi`
+- `user_action_annotation_delete`
+  - 触发：删除标注
+  - payload: `bookId`, `cfi`
+- `user_action_chat`
+  - 触发：发送聊天
+  - payload: `source`, `hasReferences`, `bookId`
+- `user_action_translate`
+  - 触发：发起翻译
+  - payload: `bookId`, `selectionLength`
+- `user_action_switch_mode`
+  - 触发：简约模式内切换模式
+  - payload: `from`, `to`, `source`
+- `user_action_recharge`
+  - 触发：点击“我已转账”
+  - payload: `channel`
+- `user_action_feedback`
+  - 触发：提交反馈
+  - payload: `content`, `source`
+- `user_action_import_data`
+  - 触发：导入书籍成功
+  - payload: `count`, `fileCount`
+
 ## 商业化策略（预留）
 - 免费额度 + 订阅为主，按量仅作超额补充。
 - UI 仅展示“剩余额度/升级入口”，不展示复杂模型信息。

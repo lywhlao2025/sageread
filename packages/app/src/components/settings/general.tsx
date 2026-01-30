@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useT } from "@/hooks/use-i18n";
 import { trackEvent } from "@/services/analytics-service";
+import { trackUserAction } from "@/services/user-action-service";
 import { useI18nStore } from "@/store/i18n-store";
 import { type AppMode, useModeStore } from "@/store/mode-store";
 import { useThemeStore } from "@/store/theme-store";
@@ -109,6 +110,9 @@ export default function GeneralSettings() {
 
   const handleModeChange = (nextMode: AppMode) => {
     if (activeMode === nextMode) return;
+    if (activeMode === "simple") {
+      void trackUserAction("switch_mode", { from: activeMode, to: nextMode, source: "settings" });
+    }
     setMode(nextMode);
     trackEvent("switch_mode", { from: activeMode, to: nextMode, source: "settings" });
   };

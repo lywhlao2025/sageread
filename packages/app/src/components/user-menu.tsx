@@ -11,16 +11,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { useT } from "@/hooks/use-i18n";
-import { recordUserEvent } from "@/services/simple-mode-service";
+import { trackUserAction } from "@/services/user-action-service";
 import { useAuthStore } from "@/store/auth-store";
-import { md5 } from "js-md5";
 import { User } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 export default function UserMenu() {
   const t = useT();
-  const { token, phone, startSwitchUser, userId } = useAuthStore();
+  const { token, phone, startSwitchUser } = useAuthStore();
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -37,13 +36,7 @@ export default function UserMenu() {
     }
     setSubmitting(true);
     try {
-      const userIdPart = userId ?? "unknown";
-      const eventId = md5(`${userIdPart}-${Date.now()}-user_feedback-${Math.random()}`);
-      await recordUserEvent({
-        eventId,
-        eventType: "user_feedback",
-        payloadJson: JSON.stringify({ content: trimmed, source: "user_menu" }),
-      });
+      await trackUserAction("feedback", { content: trimmed, source: "user_menu" });
       toast.success(t("feedback.success", "感谢反馈"));
       setIsFeedbackOpen(false);
       setFeedback("");
@@ -53,7 +46,7 @@ export default function UserMenu() {
     } finally {
       setSubmitting(false);
     }
-  }, [feedback, t, userId]);
+  }, [feedback, t]);
 
   return (
     <>

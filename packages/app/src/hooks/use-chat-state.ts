@@ -7,6 +7,7 @@ import type { ReasoningTimes } from "@/hooks/use-reasoning-timer";
 import { useTextEventHandler } from "@/hooks/use-text-event";
 import { generateContextWithAI } from "@/services/ai-context-service";
 import { trackEvent } from "@/services/analytics-service";
+import { trackUserAction } from "@/services/user-action-service";
 import {
   createThread,
   editThread,
@@ -485,9 +486,16 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
       const sourceInput = overrideInput ?? input;
       const trimmedInput = sourceInput.trim();
       if (!trimmedInput) return;
+      if (isSimpleMode) {
+        void trackUserAction("chat", {
+          source: overrideInput ? "prompt_override" : "input",
+          hasReferences: references.length > 0,
+          bookId: activeBookId ?? undefined,
+        });
+      }
       await submitMessage(trimmedInput, references.map((reference) => ({ ...reference })));
     },
-    [input, references, submitMessage],
+    [activeBookId, input, isSimpleMode, references, submitMessage],
   );
 
   const handleSubmitWithReferences = useCallback(
@@ -496,10 +504,19 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
         .map((text) => text.trim())
         .filter(Boolean)
         .map((text) => ({ id: createReferenceId(), text }));
+      if (isSimpleMode) {
+        void trackUserAction("chat", {
+          source: "references",
+          hasReferences: referenceSnapshot.length > 0,
+          bookId: activeBookId ?? undefined,
+        });
+      }
       await submitMessage(prompt, referenceSnapshot);
     },
     [
       createReferenceId,
+      activeBookId,
+      isSimpleMode,
       submitMessage,
     ],
   );
