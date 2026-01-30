@@ -290,6 +290,8 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
   useTextEventHandler({
     sendMessage,
     activeBookId,
+    isSimpleMode,
+    chatContext,
   });
 
   const createReferenceId = useCallback(() => {

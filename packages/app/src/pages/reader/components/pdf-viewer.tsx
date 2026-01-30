@@ -67,6 +67,13 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
   const translatePopupPadding = 10;
   const translatePopupMaxWidth = Math.min(360, window.innerWidth - 2 * translatePopupPadding);
   const translatePopupMaxHeight = 240;
+
+  const resolveTranslatePopupLeft = (anchorX: number) => {
+    const containerWidth = containerRef.current?.clientWidth ?? window.innerWidth;
+    const minLeft = translatePopupPadding;
+    const maxLeft = Math.max(minLeft, containerWidth - translatePopupPadding - translatePopupMaxWidth);
+    return Math.min(maxLeft, Math.max(minLeft, anchorX - translatePopupMaxWidth / 2));
+  };
   const isCJK = isCJKEnv();
   const globalViewSettings = settings.globalViewSettings;
   const translateFontFamily = globalViewSettings?.overrideFont
@@ -453,12 +460,12 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
           ref={translatePopupRef}
           className="pointer-events-auto absolute z-50 max-w-[80vw] rounded-lg border border-neutral-200 bg-white p-3 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
           style={{
-            left: translatePopupPos.x,
+            left: resolveTranslatePopupLeft(translatePopupPos.x),
             top: translatePopupPos.y,
             transform:
               translatePopupPos.y - translatePopupMaxHeight - 4 < 0
-                ? "translate(-50%, 4px)"
-                : "translate(-50%, calc(-100% - 4px))",
+                ? "translateY(4px)"
+                : "translateY(calc(-100% - 4px))",
             width: "fit-content",
             minWidth: `${Math.min(220, translatePopupMaxWidth)}px`,
             maxWidth: `${translatePopupMaxWidth}px`,

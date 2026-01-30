@@ -88,6 +88,7 @@ function createResponseStream(
   });
 }
 
+
 export class SimpleModeChatTransport implements ChatTransport<UIMessage> {
   readonly kind = "simple-mode";
   private readonly fixedTaskType?: "chat" | "translate";

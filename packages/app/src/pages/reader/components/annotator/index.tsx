@@ -307,8 +307,8 @@ const Annotator: React.FC = () => {
             maxWidth: `${translatePopupWidth}px`,
             transform:
               translatePopupPosition.point.y - translatePopupHeight - 4 < 0
-                ? "translate(-50%, 4px)"
-                : "translate(-50%, calc(-100% - 4px))",
+                ? "translateY(4px)"
+                : "translateY(calc(-100% - 4px))",
           }}
           onPointerDownCapture={(e) => e.stopPropagation()}
           onMouseDownCapture={(e) => e.stopPropagation()}

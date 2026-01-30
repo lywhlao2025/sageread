@@ -52,6 +52,27 @@ export class SimpleModeApiError extends Error {
 const BASE_URL = (import.meta.env.VITE_SAGEREAD_SERVER_BASE_URL as string | undefined) ?? "http://127.0.0.1:8080";
 const isTauri = typeof window !== "undefined" && Boolean((window as any).__TAURI__?.invoke);
 const fetchClient: typeof fetch = isTauri ? (fetchTauri as unknown as typeof fetch) : fetch;
+const SIMPLE_MODE_TIMEOUT_MS = 10_000;
+
+function createTimeoutSignal(timeoutMs: number, externalSignal?: AbortSignal) {
+  const controller = new AbortController();
+  const timer = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      controller.abort();
+    } else {
+      externalSignal.addEventListener(
+        "abort",
+        () => controller.abort(),
+        { once: true },
+      );
+    }
+  }
+  return {
+    signal: controller.signal,
+    cleanup: () => globalThis.clearTimeout(timer),
+  };
+}
 
 async function requestJson<T>(path: string, options: RequestInit, requireAuth = false): Promise<T> {
   const headers: Record<string, string> = {
@@ -221,14 +242,40 @@ export async function requestSimpleModeLlm(params: {
   sourceLang?: string;
   targetLang?: string;
 }): Promise<SimpleModeLlmPayload> {
-  return requestJson<SimpleModeLlmPayload>(
-    "/api/simple-mode/llm",
+  const headers = buildAuthHeaders(
     {
-      method: "POST",
-      body: JSON.stringify(params),
+      "Content-Type": "application/json",
     },
     true,
   );
+  const { signal, cleanup } = createTimeoutSignal(SIMPLE_MODE_TIMEOUT_MS);
+  try {
+    const response = await fetchClient(`${BASE_URL}/api/simple-mode/llm`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(params),
+      signal,
+    });
+    let payload: any = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    if (!response.ok || !payload?.success) {
+      const code = payload?.error?.code || `HTTP_${response.status}`;
+      const message = payload?.error?.message || response.statusText || "Request failed";
+      throw new SimpleModeApiError(code, message);
+    }
+    return payload.data as SimpleModeLlmPayload;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new SimpleModeApiError("TIMEOUT", "Request timed out");
+    }
+    throw error;
+  } finally {
+    cleanup();
+  }
 }
 
 export async function* streamSimpleModeLlm(params: {
@@ -248,12 +295,23 @@ export async function* streamSimpleModeLlm(params: {
     true,
   );
 
-  const response = await fetch(`${BASE_URL}/api/simple-mode/llm`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(params),
-    signal: params.abortSignal,
-  });
+  const { signal, cleanup } = createTimeoutSignal(SIMPLE_MODE_TIMEOUT_MS, params.abortSignal);
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}/api/simple-mode/llm`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(params),
+      signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new SimpleModeApiError("TIMEOUT", "Request timed out");
+    }
+    throw error;
+  } finally {
+    cleanup();
+  }
 
   if (!response.ok) {
     let payload: any = null;
