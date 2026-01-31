@@ -14,7 +14,6 @@ import { useModeStore } from "@/store/mode-store";
 import { useThemeStore } from "@/store/theme-store";
 import { getOSPlatform } from "@/utils/misc";
 import { useT } from "@/hooks/use-i18n";
-import ModeSelectionDialog from "@/components/mode-selection-dialog";
 import SimpleModeAuthDialog from "@/components/simple-mode/auth-dialog";
 import SimpleModeQuotaBattery from "@/components/simple-mode/quota-battery";
 import { Tabs } from "app-tabs";
@@ -355,7 +354,6 @@ export default function ReaderLayout() {
       </main>
 
       <SettingsDialog open={isSettingsDialogOpen} onOpenChange={toggleSettingsDialog} /> {/* 设置弹窗 */}
-      <ModeSelectionDialog />
       <SimpleModeAuthDialog />
     </div>
   );

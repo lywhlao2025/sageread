@@ -15,7 +15,7 @@ interface ModeStore {
 export const useModeStore = create<ModeStore>()(
   persist(
     (set) => ({
-      mode: null,
+      mode: "simple",
       hasHydrated: false,
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
       setMode: (mode) => set({ mode }),
@@ -28,6 +28,9 @@ export const useModeStore = create<ModeStore>()(
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
+        if (state?.mode !== "simple") {
+          state?.setMode("simple");
+        }
       },
     },
   ),
