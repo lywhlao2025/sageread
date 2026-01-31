@@ -50,7 +50,7 @@ export class SimpleModeApiError extends Error {
 }
 
 const BASE_URL =
-  (import.meta.env.VITE_SAGEREAD_SERVER_BASE_URL as string | undefined) ?? "http://121.199.24.2:8080";
+  (import.meta.env.VITE_SAGEREAD_SERVER_BASE_URL as string | undefined) ?? "https://lywhlao2025.top";
 const isTauri = typeof window !== "undefined" && Boolean((window as any).__TAURI__?.invoke);
 const fetchClient: typeof fetch = isTauri ? (fetchTauri as unknown as typeof fetch) : fetch;
 const SIMPLE_MODE_TIMEOUT_MS = 10_000;
