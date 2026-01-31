@@ -53,6 +53,7 @@ const BASE_URL = (import.meta.env.VITE_SAGEREAD_SERVER_BASE_URL as string | unde
 const isTauri = typeof window !== "undefined" && Boolean((window as any).__TAURI__?.invoke);
 const fetchClient: typeof fetch = isTauri ? (fetchTauri as unknown as typeof fetch) : fetch;
 const SIMPLE_MODE_TIMEOUT_MS = 10_000;
+const SIMPLE_MODE_STREAM_TIMEOUT_MS = 60_000;
 
 function createTimeoutSignal(timeoutMs: number, externalSignal?: AbortSignal) {
   const controller = new AbortController();
@@ -295,7 +296,7 @@ export async function* streamSimpleModeLlm(params: {
     true,
   );
 
-  const { signal, cleanup } = createTimeoutSignal(SIMPLE_MODE_TIMEOUT_MS, params.abortSignal);
+  const { signal, cleanup } = createTimeoutSignal(SIMPLE_MODE_STREAM_TIMEOUT_MS, params.abortSignal);
   let response: Response;
   try {
     response = await fetch(`${BASE_URL}/api/simple-mode/llm`, {
