@@ -20,6 +20,7 @@ import { useAuthStore } from "@/store/auth-store";
 import { useModeStore } from "@/store/mode-store";
 import { type SelectedModel, useProviderStore } from "@/store/provider-store";
 import { useThreadStore } from "@/store/thread-store";
+import { useLayoutStore } from "@/store/layout-store";
 import type { ChatReference, MessageMetadata } from "@/types/message";
 import type { Thread, ThreadSummary } from "@/types/thread";
 import type { UIMessage } from "ai";
@@ -96,6 +97,7 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
   const { mode } = useModeStore();
   const { token, quota } = useAuthStore();
   const isSimpleMode = mode === "simple";
+  const { isChatVisible, toggleChatSidebar } = useLayoutStore();
   const t = useT();
 
   const messagesRef = useRef<UIMessage[]>([]);
@@ -292,6 +294,11 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
     activeBookId,
     isSimpleMode,
     chatContext,
+    onTextReceived: () => {
+      if (!isChatVisible) {
+        toggleChatSidebar();
+      }
+    },
   });
 
   const createReferenceId = useCallback(() => {
