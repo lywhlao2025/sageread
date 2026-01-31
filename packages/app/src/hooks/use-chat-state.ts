@@ -26,6 +26,82 @@ import type { Thread, ThreadSummary } from "@/types/thread";
 import type { UIMessage } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+const TRANSLATE_KEYWORDS = ["请将引用内容翻译成", "逐句翻译", "请翻译这段内容"];
+
+const isTranslatePromptText = (text: string): boolean => {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  if (TRANSLATE_KEYWORDS.some((keyword) => trimmed.includes(keyword))) return true;
+  return trimmed.includes("翻译") && trimmed.includes("译文");
+};
+
+const getMessageText = (message: UIMessage): string => {
+  const parts = Array.isArray((message as any).parts) ? (message as any).parts : [];
+  const textFromParts = parts
+    .filter((part: any) => part?.type === "text" && typeof part.text === "string")
+    .map((part: any) => part.text)
+    .join("")
+    .trim();
+  if (textFromParts) return textFromParts;
+
+  const rawContent = (message as any).content;
+  if (typeof rawContent === "string") {
+    return rawContent.trim();
+  }
+  if (Array.isArray(rawContent)) {
+    const contentText = rawContent
+      .filter((part: any) => part?.type === "text" && typeof part.text === "string")
+      .map((part: any) => part.text)
+      .join("")
+      .trim();
+    return contentText;
+  }
+  return "";
+};
+
+const isTranslateUserMessage = (message: UIMessage): boolean => {
+  const metadata = (message.metadata as MessageMetadata) || {};
+  if (metadata.taskType === "translate") {
+    return true;
+  }
+  if (message.role !== "user") {
+    return false;
+  }
+  const text = getMessageText(message);
+  return isTranslatePromptText(text);
+};
+
+const filterTranslateMessages = (messages: UIMessage[]): UIMessage[] => {
+  const filtered: UIMessage[] = [];
+  let skipAssistant = false;
+
+  for (const message of messages) {
+    if (message.role === "user") {
+      if (isTranslateUserMessage(message)) {
+        skipAssistant = true;
+        continue;
+      }
+      skipAssistant = false;
+      filtered.push(message);
+      continue;
+    }
+
+    if (message.role === "assistant") {
+      if (skipAssistant) {
+        continue;
+      }
+      filtered.push(message);
+      continue;
+    }
+
+    if (!skipAssistant) {
+      filtered.push(message);
+    }
+  }
+
+  return filtered;
+};
+
 export interface UseChatStateReturn {
   // 基础状态
   input: string;
@@ -168,6 +244,7 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
         }
 
         const normalizedMessages = Array.isArray(nextMessages) ? [...nextMessages] : [...messagesRef.current];
+        const persistedMessages = filterTranslateMessages(normalizedMessages);
         messagesRef.current = normalizedMessages;
         setMessages(normalizedMessages);
 
@@ -186,7 +263,7 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
         }
 
         const persistMessages = (threadId: string) =>
-          editThread(threadId, { messages: normalizedMessages })
+          editThread(threadId, { messages: persistedMessages })
             .then((updatedThread) => {
               console.log("Thread updated successfully:", updatedThread.id);
               setCurrentThread(updatedThread);
@@ -195,16 +272,20 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
               console.error("Failed to update thread:", error);
             });
 
+        if (persistedMessages.length === 0) {
+          return;
+        }
+
         if (currentThread?.id) {
           persistMessages(currentThread.id);
         } else {
           try {
             const firstUserText =
-              normalizedMessages
+              persistedMessages
                 .find((m) => m.role === "user")
                 ?.parts?.map((p: any) => (p.type === "text" ? p.text : ""))
                 .join("") || "新对话";
-            createThread(activeBookId, firstUserText.slice(0, 50), normalizedMessages)
+            createThread(activeBookId, firstUserText.slice(0, 50), persistedMessages)
               .then((thread) => {
                 console.log("Created thread on finish:", thread.id);
                 setCurrentThread(thread);
@@ -372,7 +453,8 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
           return;
         }
         const previousContext = getThreadContext(thread);
-        const lastAssistantMessage = messagesRef.current
+        const filteredMessages = filterTranslateMessages(messagesRef.current);
+        const lastAssistantMessage = filteredMessages
           .slice()
           .reverse()
           .find((msg) => msg.role === "assistant");
@@ -419,8 +501,9 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
       }
 
       const messageParts = buildMessageParts(trimmedInput, referenceSnapshot);
+      const isTranslatePrompt = isTranslatePromptText(trimmedInput);
 
-      if (messages.length === 0 && !currentThread) {
+      if (messages.length === 0 && !currentThread && !isTranslatePrompt) {
         try {
           const titleSource = trimmedInput || referenceSnapshot[0]?.text || "新对话";
           const thread = await createThread(activeBookId, titleSource.substring(0, 50), []);
@@ -435,7 +518,9 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
       setReferences([]);
 
       try {
-        generateSemanticContextAsync(trimmedInput);
+        if (!isTranslatePrompt) {
+          generateSemanticContextAsync(trimmedInput);
+        }
         requestStartRef.current = Date.now();
         await sendMessage({
           parts: messageParts,
