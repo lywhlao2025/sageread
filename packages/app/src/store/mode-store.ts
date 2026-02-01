@@ -9,13 +9,13 @@ interface ModeStore {
   mode: AppMode | null;
   hasHydrated: boolean;
   setHasHydrated: (hasHydrated: boolean) => void;
-  setMode: (mode: AppMode) => void;
+  setMode: (mode: AppMode | null) => void;
 }
 
 export const useModeStore = create<ModeStore>()(
   persist(
     (set) => ({
-      mode: "simple",
+      mode: null,
       hasHydrated: false,
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
       setMode: (mode) => set({ mode }),
@@ -28,8 +28,9 @@ export const useModeStore = create<ModeStore>()(
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
-        if (state?.mode !== "simple") {
-          state?.setMode("simple");
+        // If no mode persisted (first run), fall back to showing selection dialog.
+        if (state?.mode === undefined) {
+          state?.setMode(null);
         }
       },
     },
