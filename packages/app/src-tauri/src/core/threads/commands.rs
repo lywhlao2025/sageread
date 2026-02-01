@@ -59,12 +59,17 @@ pub async fn edit_thread(
         "SELECT id, book_id, metadata, title, messages, created_at, updated_at FROM threads WHERE id = ?"
     )
     .bind(&payload.id)
-    .fetch_one(pool)
+    .fetch_optional(pool)
     .await
     .map_err(|e| {
         eprintln!("Failed to fetch existing thread: {}", e);
-        "Thread not found".to_string()
+        e.to_string()
     })?;
+
+    let row = match row {
+        Some(row) => row,
+        None => return Err("Thread not found".to_string()),
+    };
 
     let existing_thread = Thread {
         id: row.get("id"),
