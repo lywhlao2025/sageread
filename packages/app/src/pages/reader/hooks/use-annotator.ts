@@ -10,11 +10,14 @@ import {
   type PublicHighlightResponse,
 } from "@/services/public-highlights-service";
 import { iframeService } from "@/services/iframe-service";
+import { trackUserAction } from "@/services/user-action-service";
 import { useAppSettingsStore } from "@/store/app-settings-store";
+import { useAuthStore } from "@/store/auth-store";
+import { useModeStore } from "@/store/mode-store";
 import type { BookNote, HighlightColor, HighlightStyle } from "@/types/book";
 import type { BookMeta } from "@/types/note";
 import { type Position, type TextSelection, getPopupPosition, getPosition } from "@/utils/sel";
-import { getTargetLang } from "@/utils/misc"; // 获取环境默认的翻译目标语言
+import { resolveTranslateTargetLang } from "@/utils/misc";
 import { useLocale, useT } from "@/hooks/use-i18n";
 import { useQueryClient } from "@tanstack/react-query";
 import * as CFI from "foliate-js/epubcfi.js";
@@ -64,6 +67,8 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
   const t = useT();
   const locale = useLocale();
   const { settings } = useAppSettingsStore();
+  const { mode } = useModeStore();
+  const { token, quota } = useAuthStore();
   const config = useReaderStore((state) => state.config)!;
   const progress = useReaderStore((state) => state.progress)!;
   const view = useReaderStore((state) => state.view);
@@ -72,6 +77,7 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
   const { handleCreateNote } = useNotepad();
   const queryClient = useQueryClient();
   const globalViewSettings = settings.globalViewSettings;
+  const isSimpleMode = mode === "simple";
 
   // 状态管理
   const [selection, setSelection] = useState<TextSelection | null>(null);
@@ -93,10 +99,21 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
   const publicHighlightRangeKey = useRef<string | null>(null);
 
   const popupPadding = 10;
-  const annotPopupWidth = Math.min(globalViewSettings?.vertical ? 320 : 390, window.innerWidth - 2 * popupPadding);
+  const annotPopupBaseWidthByLocale = {
+    zh: 350,
+    ja: 380,
+    ko: 350,
+    en: 400,
+    es: 470,
+    fr: 500,
+    de: 450,
+    "pt-BR": 450,
+  } as const;
+  const annotPopupBaseWidth = globalViewSettings?.vertical ? 320 : annotPopupBaseWidthByLocale[locale] ?? 390;
+  const annotPopupWidth = Math.min(annotPopupBaseWidth, window.innerWidth - 2 * popupPadding);
   const annotPopupHeight = 36;
   const translatePopupWidth = Math.min(360, window.innerWidth - 2 * popupPadding);
-  const translatePopupHeight = 220;
+  const translatePopupHeight = 240;
   const isText = bookData?.book?.format === "TXT";
   const isPdf = bookData?.book?.format === "PDF";
 
@@ -416,6 +433,12 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
             void uploadPublicHighlight(updatedAnnotation, selection).catch((error) => {
               console.warn("Failed to upload public highlight:", error);
             });
+            if (isSimpleMode) {
+              void trackUserAction("annotation_update", {
+                bookId,
+                cfi,
+              });
+            }
           } else {
             await deleteBookNote(existingAnnotation.id);
             const updatedAnnotations = annotations.filter((ann) => ann.id !== existingAnnotation.id);
@@ -434,6 +457,12 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
             void removePublicHighlight(existingAnnotation, selection).catch((error) => {
               console.warn("Failed to delete public highlight:", error);
             });
+            if (isSimpleMode) {
+              void trackUserAction("annotation_delete", {
+                bookId,
+                cfi,
+              });
+            }
           }
         } else {
           const ctx = getContextByRange(selection.range, 50);
@@ -469,6 +498,12 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
           void uploadPublicHighlight(newAnnotation, selection).catch((error) => {
             console.warn("Failed to upload public highlight:", error);
           });
+          if (isSimpleMode) {
+            void trackUserAction("annotation_create", {
+              bookId,
+              cfi,
+            });
+          }
         }
       } catch (error) {
         console.error("Failed to handle highlight:", error);
@@ -488,6 +523,7 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
       getEpubSectionInfo,
       uploadPublicHighlight,
       removePublicHighlight,
+      isSimpleMode,
     ],
   );
 
@@ -532,28 +568,21 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
 
   const handleTranslate = useCallback(() => { // 处理翻译请求
     if (!selection || !selection.text) return; // 无选中内容时退出
-    const configuredLang = settings.globalReadSettings.translateTargetLang?.trim(); // 获取用户配置的目标语言
-    // Older defaults used "EN" which makes the prompt unnatural for many models.
-    // Prefer translating to Chinese unless user explicitly configured a different target language.
-    const normalized = (configuredLang || "").trim();
-    const normalizedLower = normalized.toLowerCase();
-    const targetLang =
-      !normalized
-        ? getTargetLang()
-        : normalized === "EN" || normalizedLower === "en" || normalizedLower === "english"
-          ? locale === "en"
-            ? "English"
-            : "中文"
-          : normalizedLower.startsWith("zh")
-            ? "中文"
-            : normalized;
-    const question = `${t("reader.translateQuoted", "请将引用内容翻译成{lang}。", {
+    if (mode === "simple") {
+      if (!token) {
+        toast.error(t("auth.required", "请先注册后使用"));
+        return;
+      }
+      if (quota && quota.remainingCount <= 0) {
+        toast.error(t("quota.exhausted", "额度已用完，暂不可用"));
+        return;
+      }
+    }
+    const targetLang = resolveTranslateTargetLang(undefined, locale);
+    const question = t("reader.translateQuoted", "请将引用内容翻译成{lang}。", {
       lang: targetLang,
-      text: selection.text,
-    })}\n\n${t(
-      "reader.translateDirectives",
-      "Answer the question directly.\nDo not include analysis, reasoning, thoughts, or explanations.\nOnly output the final result.",
-    )}`; // 构造翻译提问
+      text: "",
+    }).trim(); // 构造翻译提问
 
     const gridFrame = document.querySelector(`#gridcell-${bookId}`);
     if (!gridFrame) return;
@@ -585,10 +614,12 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
     translate(selection.text, question);
   }, [
     selection,
-    settings.globalReadSettings.translateTargetLang,
     bookId,
     locale,
     t,
+    mode,
+    token,
+    quota,
     globalViewSettings?.vertical,
     translate,
     popupPadding,

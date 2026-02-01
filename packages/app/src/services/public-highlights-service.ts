@@ -50,7 +50,8 @@ interface RetryQueueJob {
   next_retry_at: number;
 }
 
-const PUBLIC_HIGHLIGHTS_BASE_URL = "http://121.199.24.2:8080";
+const PUBLIC_HIGHLIGHTS_BASE_URL =
+  (import.meta.env.VITE_SAGEREAD_SERVER_BASE_URL as string | undefined) ?? "https://lywhlao2025.top";
 const PUBLIC_HIGHLIGHTS_API_BASE = `${PUBLIC_HIGHLIGHTS_BASE_URL}/api/public-highlights/upsert`;
 const PUBLIC_HIGHLIGHTS_DELETE_URL = `${PUBLIC_HIGHLIGHTS_BASE_URL}/api/public-highlights/delete`;
 const PUBLIC_HIGHLIGHTS_LIST_BATCH_URL = `${PUBLIC_HIGHLIGHTS_BASE_URL}/api/public-highlights/list-batch`;

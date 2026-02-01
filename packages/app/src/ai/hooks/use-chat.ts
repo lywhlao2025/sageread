@@ -1,24 +1,27 @@
 import type { ChatContext } from "@/hooks/use-chat-state";
 import { type UIMessage, type UseChatOptions, useChat as useChatSDK } from "@ai-sdk/react";
-import type { ChatInit, LanguageModel } from "ai";
+import type { ChatInit, ChatTransport, LanguageModel } from "ai";
 import { useEffect, useRef } from "react";
 import { CustomChatTransport } from "../custom-chat-transport";
 
 type CustomChatOptions = Omit<ChatInit<UIMessage>, "transport"> &
   Pick<UseChatOptions<UIMessage>, "experimental_throttle" | "resume"> & {
     chatContext?: ChatContext;
+    transport?: ChatTransport<UIMessage>;
   };
 
 export function useChat(model: LanguageModel, options?: CustomChatOptions) {
-  const { chatContext, ...restOptions } = options || {};
+  const { chatContext, transport: transportOverride, ...restOptions } = options || {};
   const chatContextRef = useRef(chatContext);
-  const transportRef = useRef<CustomChatTransport | null>(null);
+  const transportRef = useRef<ChatTransport<UIMessage> | null>(null);
 
   useEffect(() => {
     chatContextRef.current = chatContext;
   }, [chatContext]);
 
-  if (!transportRef.current) {
+  if (transportOverride) {
+    transportRef.current = transportOverride;
+  } else if (!transportRef.current || (transportRef.current as any).kind === "simple-mode") {
     transportRef.current = new CustomChatTransport(model, {
       prepareSendMessagesRequest: ({ body }) => {
         const currentChatContext = chatContextRef.current;
@@ -33,8 +36,8 @@ export function useChat(model: LanguageModel, options?: CustomChatOptions) {
   }
 
   useEffect(() => {
-    if (transportRef.current) {
-      transportRef.current.updateModel(model);
+    if (transportRef.current && "updateModel" in transportRef.current) {
+      (transportRef.current as CustomChatTransport).updateModel(model);
     }
   }, [model]);
 

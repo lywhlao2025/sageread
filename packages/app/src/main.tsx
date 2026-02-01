@@ -5,6 +5,7 @@ import { HashRouter } from "react-router";
 import ReaderLayout from "./components/reader-layout.tsx";
 import { flushAllWrites } from "./lib/tauri-storage.ts";
 import { startPublicHighlightRetryLoop } from "./services/public-highlights-service.ts";
+import { initAnalytics } from "./services/analytics-service.ts";
 import { mountFontsToMainApp } from "./utils/font.ts";
 import { useI18nStore } from "./store/i18n-store.ts";
 
@@ -14,6 +15,7 @@ import "./index.css";
 
 mountFontsToMainApp();
 startPublicHighlightRetryLoop();
+initAnalytics();
 
 // Keep system locale in sync (used when language preference is "system").
 useI18nStore.getState().refreshSystemLocale();

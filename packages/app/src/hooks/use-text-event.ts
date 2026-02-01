@@ -5,10 +5,12 @@ interface UseTextEventHandlerOptions {
   sendMessage: any;
   onTextReceived?: (text: string) => void;
   activeBookId?: string;
+  isSimpleMode?: boolean;
+  chatContext?: { activeBookId?: string; activeContext?: string; activeSectionLabel?: string };
 }
 
 export const useTextEventHandler = (options: UseTextEventHandlerOptions) => {
-  const { sendMessage, onTextReceived, activeBookId } = options;
+  const { sendMessage, onTextReceived, activeBookId, isSimpleMode, chatContext } = options;
 
   const handleTextEvent = useCallback(
     (event: CustomEvent<ExplainTextEventDetail>) => {
@@ -33,10 +35,18 @@ export const useTextEventHandler = (options: UseTextEventHandlerOptions) => {
           },
         ];
 
-        sendMessage({ parts });
+        sendMessage({
+          parts,
+          ...(isSimpleMode
+            ? {
+                metadata: { taskType: "chat", chatContext },
+                body: { taskType: "chat", chatContext },
+              }
+            : {}),
+        });
       }
     },
-    [sendMessage, onTextReceived, activeBookId],
+    [sendMessage, onTextReceived, activeBookId, isSimpleMode, chatContext],
   );
 
   useEffect(() => {

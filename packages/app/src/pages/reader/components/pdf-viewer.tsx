@@ -5,7 +5,9 @@ import { useLocale, useT } from "@/hooks/use-i18n";
 import { useReaderStore } from "@/pages/reader/components/reader-provider";
 import { useSelectionTranslate } from "@/pages/reader/hooks/use-selection-translate";
 import { useAppSettingsStore } from "@/store/app-settings-store";
-import { getTargetLang } from "@/utils/misc";
+import { useAuthStore } from "@/store/auth-store";
+import { useModeStore } from "@/store/mode-store";
+import { isCJKEnv, resolveTranslateTargetLang } from "@/utils/misc";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FiCopy, FiHelpCircle, FiMessageCircle } from "react-icons/fi";
 import { MdTranslate } from "react-icons/md";
@@ -16,6 +18,7 @@ import AskAIPopup from "./annotator/ask-ai-popup";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf";
 import { EventBus, PDFLinkService, PDFViewer } from "pdfjs-dist/legacy/web/pdf_viewer";
 import "pdfjs-dist/legacy/web/pdf_viewer.css";
+import { toast } from "sonner";
 // Vite will emit the worker file and give us a URL
 // biome-ignore lint/nursery/noImportAssign: asset import
 // @ts-ignore
@@ -35,6 +38,8 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
   const t = useT();
   const locale = useLocale();
   const { settings } = useAppSettingsStore();
+  const { mode } = useModeStore();
+  const { token, quota } = useAuthStore();
   const { handleCreateNote } = useNotepad();
   const bookData = useReaderStore((state) => state.bookData);
   const queryClient = useQueryClient();
@@ -59,6 +64,33 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
   const viewerRef = useRef<HTMLDivElement>(null);
   const eventBusRef = useRef<EventBus | null>(null);
   const translatePopupRef = useRef<HTMLDivElement>(null);
+  const translatePopupPadding = 10;
+  const translatePopupMaxWidth = Math.min(360, window.innerWidth - 2 * translatePopupPadding);
+  const translatePopupMaxHeight = 240;
+
+  const resolveTranslatePopupLeft = (anchorX: number) => {
+    const containerWidth = containerRef.current?.clientWidth ?? window.innerWidth;
+    const minLeft = translatePopupPadding;
+    const maxLeft = Math.max(minLeft, containerWidth - translatePopupPadding - translatePopupMaxWidth);
+    return Math.min(maxLeft, Math.max(minLeft, anchorX - translatePopupMaxWidth / 2));
+  };
+  const isCJK = isCJKEnv();
+  const globalViewSettings = settings.globalViewSettings;
+  const translateFontFamily = globalViewSettings?.overrideFont
+    ? isCJK
+      ? globalViewSettings.defaultCJKFont
+      : globalViewSettings.defaultFont === "Sans-serif"
+        ? globalViewSettings.sansSerifFont
+        : globalViewSettings.serifFont
+    : undefined;
+  const translateTextStyle = {
+    fontSize: globalViewSettings?.defaultFontSize ? `${globalViewSettings.defaultFontSize}px` : undefined,
+    lineHeight: globalViewSettings?.lineHeight,
+    fontFamily: translateFontFamily,
+    fontWeight: globalViewSettings?.fontWeight,
+    letterSpacing: globalViewSettings?.letterSpacing ? `${globalViewSettings.letterSpacing}px` : undefined,
+    wordSpacing: globalViewSettings?.wordSpacing ? `${globalViewSettings.wordSpacing}px` : undefined,
+  };
 
   const {
     content: translateContent,
@@ -261,23 +293,18 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
 
   const handleTranslate = () => {
     if (!selectedText) return;
-    const configuredLang = settings.globalReadSettings.translateTargetLang?.trim();
-    const normalized = (configuredLang || "").trim();
-    const normalizedLower = normalized.toLowerCase();
-    const targetLang =
-      !normalized
-        ? getTargetLang()
-        : normalized === "EN" || normalizedLower === "en" || normalizedLower === "english"
-          ? locale === "en"
-            ? "English"
-            : "中文"
-          : normalizedLower.startsWith("zh")
-            ? "中文"
-            : normalized;
-    const prompt = `${t("reader.translateTextPrompt", undefined, { lang: targetLang, text: selectedText })}\n\n${t(
-      "reader.translateDirectives",
-      "Answer the question directly.\nDo not include analysis, reasoning, thoughts, or explanations.\nOnly output the final result.",
-    )}`;
+    if (mode === "simple") {
+      if (!token) {
+        toast.error(t("auth.required", "请先注册后使用"));
+        return;
+      }
+      if (quota && quota.remainingCount <= 0) {
+        toast.error(t("quota.exhausted", "额度已用完，暂不可用"));
+        return;
+      }
+    }
+    const targetLang = resolveTranslateTargetLang(undefined, locale);
+    const prompt = t("reader.translateTextPrompt", undefined, { lang: targetLang, text: "" }).trim();
     if (popupPos) {
       setTranslatePopupPos({ x: popupPos.x, y: popupPos.y + 8 });
     }
@@ -431,21 +458,32 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ file, bookId }) => {
       {showTranslatePopup && translatePopupPos && (
         <div
           ref={translatePopupRef}
-          className="pointer-events-auto absolute z-50 w-[360px] max-w-[80vw] rounded-lg border border-neutral-200 bg-white p-3 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+          className="pointer-events-auto absolute z-50 max-w-[80vw] rounded-lg border border-neutral-200 bg-white p-3 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
           style={{
-            left: translatePopupPos.x,
+            left: resolveTranslatePopupLeft(translatePopupPos.x),
             top: translatePopupPos.y,
             transform:
-              translatePopupPos.y - 220 - 4 < 0 ? "translate(-50%, 4px)" : "translate(-50%, calc(-100% - 4px))",
-            height: "220px",
+              translatePopupPos.y - translatePopupMaxHeight - 4 < 0
+                ? "translateY(4px)"
+                : "translateY(calc(-100% - 4px))",
+            width: "fit-content",
+            minWidth: `${Math.min(220, translatePopupMaxWidth)}px`,
+            maxWidth: `${translatePopupMaxWidth}px`,
           }}
           onMouseDown={(e) => e.stopPropagation()}
         >
           <div className="text-xs text-neutral-500">{t("reader.action.translate")}</div>
-          <div className="mt-2 max-h-[188px] overflow-y-auto whitespace-pre-wrap text-sm text-neutral-800 dark:text-neutral-100">
+          <div
+            className="mt-2 overflow-y-auto whitespace-pre-wrap text-sm text-neutral-800 dark:text-neutral-100"
+            style={{ maxHeight: translatePopupMaxHeight - 48, ...translateTextStyle }}
+          >
             {translateContent ||
               (translateStatus === "streaming" || translateStatus === "submitted" ? t("chat.loading") : null) ||
-              (translateError ? "Translation failed." : "")}
+              (translateError
+                ? translateError instanceof Error
+                  ? translateError.message
+                  : String(translateError)
+                : "")}
           </div>
         </div>
       )}

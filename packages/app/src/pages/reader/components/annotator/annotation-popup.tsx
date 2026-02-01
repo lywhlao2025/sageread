@@ -23,6 +23,8 @@ interface AnnotationPopupProps {
 
 const OPTIONS_PADDING_PIX = 16;
 const OPTIONS_SPACING = 8;
+const POPUP_PADDING_PIX = 10;
+const POPUP_MIN_WIDTH = 220;
 
 const AnnotationPopup: React.FC<AnnotationPopupProps> = ({
   dir,
@@ -54,6 +56,31 @@ const AnnotationPopup: React.FC<AnnotationPopupProps> = ({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  const resolvedPopupWidth = useMemo(() => {
+    if (isVertical) return popupHeight;
+    const maxWidth = Math.min(popupWidth, windowSize.width - POPUP_PADDING_PIX * 2);
+    return Math.max(POPUP_MIN_WIDTH, maxWidth);
+  }, [isVertical, popupHeight, popupWidth, windowSize.width]);
+
+  const resolvedPopupHeight = isVertical ? popupWidth : popupHeight;
+
+  const resolvedPosition = useMemo(() => {
+    if (isVertical || !position) return position;
+    const delta = (popupWidth - resolvedPopupWidth) / 2;
+    const unclampedX = position.point.x + delta;
+    const clampedX = Math.max(
+      POPUP_PADDING_PIX,
+      Math.min(unclampedX, windowSize.width - POPUP_PADDING_PIX - resolvedPopupWidth),
+    );
+    return {
+      ...position,
+      point: {
+        ...position.point,
+        x: clampedX,
+      },
+    };
+  }, [isVertical, position, popupWidth, resolvedPopupWidth, windowSize.width]);
+
   // Calculate the best position for HighlightOptions
   const highlightOptionsStyle = useMemo(() => {
     if (!highlightOptionsVisible) return {};
@@ -62,8 +89,8 @@ const AnnotationPopup: React.FC<AnnotationPopupProps> = ({
     // For absolute positioning, we need to consider the positioning context
     const viewportHeight = windowSize.height;
     const viewportWidth = windowSize.width;
-    const optionsWidth = isVertical ? popupHeight : popupWidth;
-    const optionsHeight = isVertical ? popupWidth : popupHeight;
+    const optionsWidth = isVertical ? resolvedPopupHeight : resolvedPopupWidth;
+    const optionsHeight = isVertical ? resolvedPopupWidth : resolvedPopupHeight;
 
     if (isVertical) {
       // For vertical layout, place left or right of the popup
@@ -108,7 +135,7 @@ const AnnotationPopup: React.FC<AnnotationPopupProps> = ({
     }
 
     // For horizontal layout, place above or below the popup
-    const popupBottom = position.point.y + popupHeight;
+    const popupBottom = position.point.y + resolvedPopupHeight;
     const spaceAbove = position.point.y;
     const spaceBelow = viewportHeight - popupBottom;
     const needsSpace = optionsHeight + OPTIONS_SPACING;
@@ -139,7 +166,7 @@ const AnnotationPopup: React.FC<AnnotationPopupProps> = ({
       left = position.point.x;
     } else if (trianglePosition.dir === "right") {
       // Right align to popup's right edge
-      left = position.point.x + popupWidth - optionsWidth;
+      left = position.point.x + resolvedPopupWidth - optionsWidth;
     }
 
     return {
@@ -148,14 +175,22 @@ const AnnotationPopup: React.FC<AnnotationPopupProps> = ({
       left: `${left}px`,
       top: `${Math.max(OPTIONS_PADDING_PIX, top)}px`,
     };
-  }, [highlightOptionsVisible, isVertical, position, trianglePosition, popupWidth, popupHeight, windowSize]);
+  }, [
+    highlightOptionsVisible,
+    isVertical,
+    position,
+    trianglePosition,
+    resolvedPopupWidth,
+    resolvedPopupHeight,
+    windowSize,
+  ]);
 
   return (
     <div dir={dir}>
       <Popup
-        width={isVertical ? popupHeight : popupWidth}
-        height={isVertical ? popupWidth : popupHeight}
-        position={position}
+        width={resolvedPopupWidth}
+        height={resolvedPopupHeight}
+        position={resolvedPosition}
         className="selection-popup border border-neutral-200 bg-white text-neutral-800 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
       >
         <div

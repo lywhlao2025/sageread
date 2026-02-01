@@ -1,24 +1,30 @@
 import HomeLayout from "@/components/home-layout";
 import LanguageSwitcher from "@/components/language-switcher";
 import { NotepadContainer } from "@/components/notepad";
-import NotificationDropdown from "@/components/notification-dropdown";
 import SettingsDialog from "@/components/settings/settings-dialog";
 import SideChat from "@/components/side-chat";
+import UserMenu from "@/components/user-menu";
 import WindowControls from "@/components/window-controls";
 import { useFontEvents } from "@/hooks/use-font-events";
 import ReaderViewer from "@/pages/reader";
 import { ReaderProvider } from "@/pages/reader/components/reader-provider";
 import { useAppSettingsStore } from "@/store/app-settings-store";
 import { useLayoutStore } from "@/store/layout-store";
+import { useModeStore } from "@/store/mode-store";
 import { useThemeStore } from "@/store/theme-store";
 import { getOSPlatform } from "@/utils/misc";
 import { useT } from "@/hooks/use-i18n";
+import SimpleModeAuthDialog from "@/components/simple-mode/auth-dialog";
+import SimpleModeQuotaBattery from "@/components/simple-mode/quota-battery";
 import { Tabs } from "app-tabs";
 import { HomeIcon } from "lucide-react";
 import { Resizable } from "re-resizable";
 import { useEffect, useRef, useState } from "react";
 import { Menu } from "@tauri-apps/api/menu";
 import { LogicalPosition } from "@tauri-apps/api/window";
+import { useAuthStore } from "@/store/auth-store";
+import { fetchQuota } from "@/services/simple-mode-service";
+import { trackUserAction } from "@/services/user-action-service";
 
 export default function ReaderLayout() {
   useFontEvents(); // 监听系统字体变更事件，确保自定义字体加载后立即生效
@@ -39,13 +45,19 @@ export default function ReaderLayout() {
   } = useLayoutStore(); // 读取布局相关状态
   const { isDarkMode, swapSidebars } = useThemeStore(); // 读取主题与侧栏位置交换配置
   const { isSettingsDialogOpen, toggleSettingsDialog } = useAppSettingsStore(); // 设置弹窗开关状态
+  const { mode } = useModeStore();
   const t = useT();
+  const { token, quota, setQuota } = useAuthStore();
 
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 记录窗口大小调整的定时器句柄
   const [showOverlay, setShowOverlay] = useState(false); // 控制调整大小时的遮罩显示
+  const quotaPollRef = useRef(false);
+  const lastReadTabRef = useRef<string | null>(null);
 
   const isWindows = getOSPlatform() === "windows"; // 判断是否为 Windows，用于 Tabs 左侧留白
-
+  const isSimpleMode = mode === "simple";
+  const resolvedSwapSidebars = isSimpleMode ? false : swapSidebars;
+  const showNotepadSidebar = isNotepadVisible;
   const handleTabContextMenu = async (tabId: string, event: MouseEvent) => {
     event.preventDefault();
     const tabIndex = tabs.findIndex((tab) => tab.id === tabId);
@@ -103,6 +115,60 @@ export default function ReaderLayout() {
   }, []); // 只在挂载/卸载时执行
 
   useEffect(() => {
+    if (!isSimpleMode || !token || quota) return;
+    fetchQuota()
+      .then((data) => setQuota(data))
+      .catch((error) => {
+        console.warn("Failed to fetch quota:", error);
+      });
+  }, [isSimpleMode, quota, setQuota, token]);
+
+  useEffect(() => {
+    if (!isSimpleMode || !activeTabId || activeTabId === "home") {
+      return;
+    }
+    if (lastReadTabRef.current === activeTabId) {
+      return;
+    }
+    lastReadTabRef.current = activeTabId;
+    const currentTab = tabs.find((tab) => tab.id === activeTabId);
+    void trackUserAction("read", {
+      bookId: currentTab?.bookId,
+      tabId: activeTabId,
+      source: "tab_active",
+    });
+  }, [activeTabId, isSimpleMode, tabs]);
+
+  useEffect(() => {
+    if (!isSimpleMode || !token) {
+      return;
+    }
+
+    const pollQuota = async () => {
+      if (quotaPollRef.current) return;
+      quotaPollRef.current = true;
+      try {
+        const data = await fetchQuota();
+        setQuota(data);
+      } catch (error) {
+        try {
+          const data = await fetchQuota();
+          setQuota(data);
+        } catch (retryError) {
+          console.warn("Failed to poll quota:", retryError);
+        }
+      } finally {
+        quotaPollRef.current = false;
+      }
+    };
+
+    pollQuota();
+    const intervalMs = import.meta.env.DEV ? 60 * 1000 : 5 * 60 * 1000;
+    const timer = window.setInterval(pollQuota, intervalMs);
+    return () => window.clearInterval(timer);
+  }, [isSimpleMode, setQuota, token]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const isCloseShortcut =
         (event.metaKey && event.key === "w" && event.code === "KeyW") || // macOS 快捷关闭标签
@@ -143,8 +209,9 @@ export default function ReaderLayout() {
           }
           pinnedRight={
             <div className="flex items-center gap-1"> {/* 固定右侧的通知和窗口控制 */}
+              <SimpleModeQuotaBattery />
               <LanguageSwitcher />
-              <NotificationDropdown />
+              <UserMenu />
               <WindowControls />
             </div>
           }
@@ -166,7 +233,7 @@ export default function ReaderLayout() {
           const store = getReaderStore(tab.id); // 获取该标签对应的 ReaderStore
           if (!store) return null; // 无 store 时跳过
 
-          const notepadSidebar = isNotepadVisible && ( // 笔记侧栏条件渲染
+          const notepadSidebar = showNotepadSidebar && ( // 笔记侧栏条件渲染
             <Resizable
               defaultSize={{
                 width: 300, // 默认宽度
@@ -176,16 +243,16 @@ export default function ReaderLayout() {
               maxWidth={500} // 最大宽度
               enable={{
                 top: false,
-                right: !swapSidebars, // 根据配置决定拖拽手柄位置
+                right: !resolvedSwapSidebars, // 根据配置决定拖拽手柄位置
                 bottom: false,
-                left: swapSidebars,
+                left: resolvedSwapSidebars,
                 topRight: false,
                 bottomRight: false,
                 bottomLeft: false,
                 topLeft: false,
               }}
               handleComponent={
-                swapSidebars
+                resolvedSwapSidebars
                   ? { left: <div className="custom-resize-handle" /> } // 侧栏在右时把手在左
                   : { right: <div className="custom-resize-handle custom-resize-handle-left" /> } // 侧栏在左时把手在右
               }
@@ -204,7 +271,7 @@ export default function ReaderLayout() {
                 );
               }}
             >
-              <div className={swapSidebars ? "ml-1 h-[calc(100dvh-48px)]" : "mr-1 h-[calc(100dvh-48px)]"}>
+              <div className={resolvedSwapSidebars ? "ml-1 h-[calc(100dvh-48px)]" : "mr-1 h-[calc(100dvh-48px)]"}>
                 <NotepadContainer bookId={tab.bookId} /> {/* 笔记容器，按书籍 ID 绑定 */}
               </div>
             </Resizable>
@@ -220,16 +287,16 @@ export default function ReaderLayout() {
               maxWidth={580} // 最大宽度
               enable={{
                 top: false,
-                right: swapSidebars, // 根据配置决定拖拽手柄位置
+                right: resolvedSwapSidebars, // 根据配置决定拖拽手柄位置
                 bottom: false,
-                left: !swapSidebars,
+                left: !resolvedSwapSidebars,
                 topRight: false,
                 bottomRight: false,
                 bottomLeft: false,
                 topLeft: false,
               }}
               handleComponent={
-                swapSidebars
+                resolvedSwapSidebars
                   ? { right: <div className="custom-resize-handle custom-resize-handle-left" /> } // 侧栏在左时把手在右
                   : { left: <div className="custom-resize-handle" /> } // 侧栏在右时把手在左
               }
@@ -250,7 +317,9 @@ export default function ReaderLayout() {
             >
               <div
                 className={
-                  swapSidebars ? "mr-1 h-[calc(100dvh-48px)] rounded-md" : "m-1 mt-0 h-[calc(100dvh-48px)] rounded-md"
+                  resolvedSwapSidebars
+                    ? "mr-1 h-[calc(100dvh-48px)] rounded-md"
+                    : "m-1 mt-0 h-[calc(100dvh-48px)] rounded-md"
                 }
               >
                 <SideChat key={`chat-${tab.id}`} bookId={tab.bookId} /> {/* 聊天面板，绑定书籍 ID */}
@@ -267,7 +336,7 @@ export default function ReaderLayout() {
                   zIndex: tab.id === activeTabId ? 1 : 0, // 激活标签置顶
                 }}
               >
-                {swapSidebars ? chatSidebar : notepadSidebar} {/* 左侧区域：根据配置放置 chat 或 notepad */}
+                {resolvedSwapSidebars ? chatSidebar : notepadSidebar} {/* 左侧区域：根据配置放置 chat 或 notepad */}
 
                 <div className="relative flex-1 rounded-md border shadow-around">
                   <ReaderViewer /> {/* 主阅读视图 */}
@@ -277,7 +346,7 @@ export default function ReaderLayout() {
                   )}
                 </div>
 
-                {swapSidebars ? notepadSidebar : chatSidebar} {/* 右侧区域：与左侧互换 */}
+                {resolvedSwapSidebars ? notepadSidebar : chatSidebar} {/* 右侧区域：与左侧互换 */}
               </div>
             </ReaderProvider>
           );
@@ -285,6 +354,7 @@ export default function ReaderLayout() {
       </main>
 
       <SettingsDialog open={isSettingsDialogOpen} onOpenChange={toggleSettingsDialog} /> {/* 设置弹窗 */}
+      <SimpleModeAuthDialog />
     </div>
   );
 }

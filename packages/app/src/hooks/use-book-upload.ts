@@ -4,7 +4,9 @@ import { toast } from "sonner";
 
 import { uploadBook } from "@/services/book-service";
 import { FILE_ACCEPT_FORMATS, SUPPORTED_FILE_EXTS } from "@/services/constants";
+import { trackUserAction } from "@/services/user-action-service";
 import { useLibraryStore } from "@/store/library-store";
+import { useModeStore } from "@/store/mode-store";
 import { getFilename, listFormater } from "@/utils/book";
 import { eventDispatcher } from "@/utils/event";
 
@@ -19,6 +21,8 @@ export function useBookUpload(options: UseBookUploadOptions = {}) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const { refreshBooks } = useLibraryStore();
+  const { mode } = useModeStore();
+  const isSimpleMode = mode === "simple";
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -107,10 +111,16 @@ export function useBookUpload(options: UseBookUploadOptions = {}) {
         toast.success(`成功导入 ${successBooks.length} 本书籍`);
         onBooksImported?.(successBooks);
         void eventDispatcher.dispatch("books-imported", { books: successBooks });
+        if (isSimpleMode) {
+          void trackUserAction("import_data", {
+            count: successBooks.length,
+            fileCount: files.length,
+          });
+        }
         await refreshBooks();
       }
     },
-    [refreshBooks, onBooksImported],
+    [isSimpleMode, refreshBooks, onBooksImported],
   );
 
   const selectFiles = useCallback((): Promise<FileList | null> => {

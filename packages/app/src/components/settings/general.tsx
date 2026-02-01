@@ -16,7 +16,7 @@ import { exists, mkdir } from "@tauri-apps/plugin-fs";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { check } from "@tauri-apps/plugin-updater";
 import clsx from "clsx";
-import { Check, ChevronDownIcon, Copy, FolderOpen, RefreshCw } from "lucide-react";
+import { ChevronDownIcon, Copy, FolderOpen, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -29,7 +29,6 @@ export default function GeneralSettings() {
   const [appVersion, setAppVersion] = useState("0.1.0");
 
   const { themeMode, autoScroll, swapSidebars, setThemeMode, setAutoScroll, setSwapSidebars } = useThemeStore();
-
   const themeModeOptions = [
     { value: "auto" as ThemeMode, label: t("settings.theme.auto", "系统") },
     { value: "light" as ThemeMode, label: t("settings.theme.light", "亮色") },

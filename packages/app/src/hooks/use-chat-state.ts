@@ -1,9 +1,13 @@
 import { useChat } from "@/ai/hooks/use-chat";
+import { SimpleModeChatTransport } from "@/ai/simple-mode-chat-transport";
 import { useForceUpdate } from "@/hooks/use-force-update";
+import { useT } from "@/hooks/use-i18n";
 import { useModelSelector } from "@/hooks/use-model-selector";
 import type { ReasoningTimes } from "@/hooks/use-reasoning-timer";
 import { useTextEventHandler } from "@/hooks/use-text-event";
 import { generateContextWithAI } from "@/services/ai-context-service";
+import { trackEvent } from "@/services/analytics-service";
+import { trackUserAction } from "@/services/user-action-service";
 import {
   createThread,
   editThread,
@@ -12,12 +16,91 @@ import {
   getThreadContext,
   updateThreadContext,
 } from "@/services/thread-service";
+import { useAuthStore } from "@/store/auth-store";
+import { useModeStore } from "@/store/mode-store";
 import { type SelectedModel, useProviderStore } from "@/store/provider-store";
 import { useThreadStore } from "@/store/thread-store";
+import { useLayoutStore } from "@/store/layout-store";
 import type { ChatReference, MessageMetadata } from "@/types/message";
 import type { Thread, ThreadSummary } from "@/types/thread";
 import type { UIMessage } from "ai";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+const TRANSLATE_KEYWORDS = ["请将引用内容翻译成", "逐句翻译", "请翻译这段内容"];
+
+const isTranslatePromptText = (text: string): boolean => {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  if (TRANSLATE_KEYWORDS.some((keyword) => trimmed.includes(keyword))) return true;
+  return trimmed.includes("翻译") && trimmed.includes("译文");
+};
+
+const getMessageText = (message: UIMessage): string => {
+  const parts = Array.isArray((message as any).parts) ? (message as any).parts : [];
+  const textFromParts = parts
+    .filter((part: any) => part?.type === "text" && typeof part.text === "string")
+    .map((part: any) => part.text)
+    .join("")
+    .trim();
+  if (textFromParts) return textFromParts;
+
+  const rawContent = (message as any).content;
+  if (typeof rawContent === "string") {
+    return rawContent.trim();
+  }
+  if (Array.isArray(rawContent)) {
+    const contentText = rawContent
+      .filter((part: any) => part?.type === "text" && typeof part.text === "string")
+      .map((part: any) => part.text)
+      .join("")
+      .trim();
+    return contentText;
+  }
+  return "";
+};
+
+const isTranslateUserMessage = (message: UIMessage): boolean => {
+  const metadata = (message.metadata as MessageMetadata) || {};
+  if (metadata.taskType === "translate") {
+    return true;
+  }
+  if (message.role !== "user") {
+    return false;
+  }
+  const text = getMessageText(message);
+  return isTranslatePromptText(text);
+};
+
+const filterTranslateMessages = (messages: UIMessage[]): UIMessage[] => {
+  const filtered: UIMessage[] = [];
+  let skipAssistant = false;
+
+  for (const message of messages) {
+    if (message.role === "user") {
+      if (isTranslateUserMessage(message)) {
+        skipAssistant = true;
+        continue;
+      }
+      skipAssistant = false;
+      filtered.push(message);
+      continue;
+    }
+
+    if (message.role === "assistant") {
+      if (skipAssistant) {
+        continue;
+      }
+      filtered.push(message);
+      continue;
+    }
+
+    if (!skipAssistant) {
+      filtered.push(message);
+    }
+  }
+
+  return filtered;
+};
 
 export interface UseChatStateReturn {
   // 基础状态
@@ -87,15 +170,25 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
   const currentThread = options.currentThread !== undefined ? options.currentThread : globalThreadStore.currentThread;
   const setCurrentThread = options.setCurrentThread || globalThreadStore.setCurrentThread;
   const forceUpdate = useForceUpdate();
+  const { mode } = useModeStore();
+  const { token, quota } = useAuthStore();
+  const isSimpleMode = mode === "simple";
+  const { isChatVisible, toggleChatSidebar } = useLayoutStore();
+  const t = useT();
 
   const messagesRef = useRef<UIMessage[]>([]);
   const reasoningTimesRef = useRef<{ [messageId: string]: ReasoningTimes }>({});
+  const requestStartRef = useRef<number | null>(null);
 
   const handleReasoningTimesUpdate = (messageId: string, reasoningTimes: ReasoningTimes) => {
     reasoningTimesRef.current[messageId] = reasoningTimes;
   };
 
   const { selectedModel, setSelectedModel, currentModelInstance } = useModelSelector("deepseek", "deepseek-chat");
+  const simpleModeTransport = useMemo(
+    () => (isSimpleMode ? new SimpleModeChatTransport() : null),
+    [isSimpleMode],
+  );
 
   const { messages, status, error, stop, setMessages, sendMessage, clearError, regenerate } = useChat(
     currentModelInstance || "deepseek-chat",
@@ -103,6 +196,7 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
       experimental_throttle: 50,
       messages: [],
       chatContext,
+      transport: simpleModeTransport ?? undefined,
       onError: (error) => {
         console.error("Error:", error);
       },
@@ -110,6 +204,7 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
         const { currentThread } = useThreadStore.getState();
         const { selectedModel } = useProviderStore.getState();
         const resolvedMessages = finishedMessages ?? messagesRef.current;
+        const requestStart = requestStartRef.current;
 
         let nextMessages = resolvedMessages;
 
@@ -149,15 +244,26 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
         }
 
         const normalizedMessages = Array.isArray(nextMessages) ? [...nextMessages] : [...messagesRef.current];
+        const persistedMessages = filterTranslateMessages(normalizedMessages);
         messagesRef.current = normalizedMessages;
         setMessages(normalizedMessages);
+
+        if (requestStart) {
+          const durationMs = Math.max(0, Date.now() - requestStart);
+          if (isError) {
+            trackEvent("task_failed", { task_type: "chat", duration_ms: durationMs, error_type: "unknown" });
+          } else {
+            trackEvent("task_done", { task_type: "chat", duration_ms: durationMs });
+          }
+          requestStartRef.current = null;
+        }
 
         if (isError) {
           return;
         }
 
         const persistMessages = (threadId: string) =>
-          editThread(threadId, { messages: normalizedMessages })
+          editThread(threadId, { messages: persistedMessages })
             .then((updatedThread) => {
               console.log("Thread updated successfully:", updatedThread.id);
               setCurrentThread(updatedThread);
@@ -166,16 +272,20 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
               console.error("Failed to update thread:", error);
             });
 
+        if (persistedMessages.length === 0) {
+          return;
+        }
+
         if (currentThread?.id) {
           persistMessages(currentThread.id);
         } else {
           try {
             const firstUserText =
-              normalizedMessages
+              persistedMessages
                 .find((m) => m.role === "user")
                 ?.parts?.map((p: any) => (p.type === "text" ? p.text : ""))
                 .join("") || "新对话";
-            createThread(activeBookId, firstUserText.slice(0, 50), normalizedMessages)
+            createThread(activeBookId, firstUserText.slice(0, 50), persistedMessages)
               .then((thread) => {
                 console.log("Created thread on finish:", thread.id);
                 setCurrentThread(thread);
@@ -263,6 +373,13 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
   useTextEventHandler({
     sendMessage,
     activeBookId,
+    isSimpleMode,
+    chatContext,
+    onTextReceived: () => {
+      if (!isChatVisible) {
+        toggleChatSidebar();
+      }
+    },
   });
 
   const createReferenceId = useCallback(() => {
@@ -336,7 +453,8 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
           return;
         }
         const previousContext = getThreadContext(thread);
-        const lastAssistantMessage = messagesRef.current
+        const filteredMessages = filterTranslateMessages(messagesRef.current);
+        const lastAssistantMessage = filteredMessages
           .slice()
           .reverse()
           .find((msg) => msg.role === "assistant");
@@ -371,9 +489,21 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
 
       setDisplayError(null);
 
-      const messageParts = buildMessageParts(trimmedInput, referenceSnapshot);
+      if (isSimpleMode) {
+        if (!token) {
+          setDisplayError(new Error(t("auth.required", "请先注册后使用")));
+          return;
+        }
+        if (quota && quota.remainingCount <= 0) {
+          setDisplayError(new Error(t("quota.exhausted", "额度已用完，暂不可用")));
+          return;
+        }
+      }
 
-      if (messages.length === 0 && !currentThread) {
+      const messageParts = buildMessageParts(trimmedInput, referenceSnapshot);
+      const isTranslatePrompt = isTranslatePromptText(trimmedInput);
+
+      if (messages.length === 0 && !currentThread && !isTranslatePrompt) {
         try {
           const titleSource = trimmedInput || referenceSnapshot[0]?.text || "新对话";
           const thread = await createThread(activeBookId, titleSource.substring(0, 50), []);
@@ -388,8 +518,14 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
       setReferences([]);
 
       try {
-        generateSemanticContextAsync(trimmedInput);
-        await sendMessage({ parts: messageParts });
+        if (!isTranslatePrompt) {
+          generateSemanticContextAsync(trimmedInput);
+        }
+        requestStartRef.current = Date.now();
+        await sendMessage({
+          parts: messageParts,
+          ...(isSimpleMode ? { metadata: { taskType: "chat", chatContext } } : {}),
+        });
         setMessages((prev) => {
           if (!Array.isArray(prev) || prev.length === 0) {
             return prev;
@@ -427,7 +563,12 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
       currentThread,
       activeBookId,
       buildMessageParts,
+      chatContext,
       generateSemanticContextAsync,
+      isSimpleMode,
+      quota,
+      t,
+      token,
       sendMessage,
       setCurrentThread,
       setMessages,
@@ -439,9 +580,16 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
       const sourceInput = overrideInput ?? input;
       const trimmedInput = sourceInput.trim();
       if (!trimmedInput) return;
+      if (isSimpleMode) {
+        void trackUserAction("chat", {
+          source: overrideInput ? "prompt_override" : "input",
+          hasReferences: references.length > 0,
+          bookId: activeBookId ?? undefined,
+        });
+      }
       await submitMessage(trimmedInput, references.map((reference) => ({ ...reference })));
     },
-    [input, references, submitMessage],
+    [activeBookId, input, isSimpleMode, references, submitMessage],
   );
 
   const handleSubmitWithReferences = useCallback(
@@ -450,10 +598,19 @@ export function useChatState(options: UseChatStateOptions): UseChatStateReturn {
         .map((text) => text.trim())
         .filter(Boolean)
         .map((text) => ({ id: createReferenceId(), text }));
+      if (isSimpleMode) {
+        void trackUserAction("chat", {
+          source: "references",
+          hasReferences: referenceSnapshot.length > 0,
+          bookId: activeBookId ?? undefined,
+        });
+      }
       await submitMessage(prompt, referenceSnapshot);
     },
     [
       createReferenceId,
+      activeBookId,
+      isSimpleMode,
       submitMessage,
     ],
   );

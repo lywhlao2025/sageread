@@ -1,4 +1,5 @@
 import SettingsDialog from "@/components/settings/settings-dialog";
+import SimpleModeAuthDialog from "@/components/simple-mode/auth-dialog";
 import { useBookUpload } from "@/hooks/use-book-upload";
 import { useSafeAreaInsets } from "@/hooks/use-safe-areaInsets";
 import EmbeddingModelPrompt from "@/pages/library/components/embedding-model-prompt";
@@ -9,6 +10,7 @@ import StatisticsPage from "@/pages/statistics";
 import { useAppSettingsStore } from "@/store/app-settings-store";
 import { useLibraryStore } from "@/store/library-store";
 import { useLlamaStore } from "@/store/llama-store";
+import { useModeStore } from "@/store/mode-store";
 import { PRESET_EMBEDDING_MODELS } from "@/constants/preset-models";
 import { downloadModelFile, listLocalModels } from "@/services/model-service";
 import { enqueueVectorization } from "@/services/vectorization-queue";
@@ -32,8 +34,10 @@ const NotesPage = () => (
 const HomeLayout = () => {
   const { refreshBooks } = useLibraryStore();
   const { isSettingsDialogOpen, toggleSettingsDialog, settings, setSettings } = useAppSettingsStore();
+  const { mode } = useModeStore();
   const insets = useSafeAreaInsets();
   const { isDragOver, handleDragOver, handleDragLeave, handleDrop } = useBookUpload();
+  const isSimpleMode = mode === "simple";
 
   const isInitiating = useRef(false);
   const [libraryLoaded, setLibraryLoaded] = useState(false);
@@ -250,7 +254,7 @@ const HomeLayout = () => {
           </div>
         )}
 
-        <Sidebar />
+        {!isSimpleMode && <Sidebar />}
 
         <div className="h-full flex-1 overflow-hidden p-1">
           <Routes>
@@ -305,6 +309,7 @@ const HomeLayout = () => {
         onCancel={handleCancelEmbeddingPrompt}
         onNeverAsk={handleNeverAskEmbeddingPrompt}
       />
+      <SimpleModeAuthDialog />
     </div>
   );
 };
