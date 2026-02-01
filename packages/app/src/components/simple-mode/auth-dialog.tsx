@@ -86,7 +86,10 @@ export default function SimpleModeAuthDialog() {
       try {
         auth = await registerUser(normalized, code.trim());
       } catch (error) {
-        if (error instanceof SimpleModeApiError && error.code === "USER_EXISTS") {
+        if (
+          error instanceof SimpleModeApiError &&
+          (error.code === "USER_EXISTS" || error.code === "HTTP_409")
+        ) {
           auth = await loginUser(normalized, code.trim());
         } else {
           throw error;
