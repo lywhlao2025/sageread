@@ -24,10 +24,6 @@ export default function UserMenu() {
   const [feedback, setFeedback] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  if (!token) {
-    return null;
-  }
-
   const handleSubmitFeedback = useCallback(async () => {
     const trimmed = feedback.trim();
     if (!trimmed) {
@@ -47,6 +43,10 @@ export default function UserMenu() {
       setSubmitting(false);
     }
   }, [feedback, t]);
+
+  if (!token) {
+    return null;
+  }
 
   return (
     <>

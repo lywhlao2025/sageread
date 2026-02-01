@@ -54,7 +54,7 @@ const BASE_URL =
 const isTauri = typeof window !== "undefined" && Boolean((window as any).__TAURI__?.invoke);
 const fetchClient: typeof fetch = isTauri ? (fetchTauri as unknown as typeof fetch) : fetch;
 const SIMPLE_MODE_TIMEOUT_MS = 10_000;
-const SIMPLE_MODE_STREAM_TIMEOUT_MS = 60_000;
+const SIMPLE_MODE_STREAM_TIMEOUT_MS = 180_000; // allow up to 3 minutes for long responses
 
 function createTimeoutSignal(timeoutMs: number, externalSignal?: AbortSignal) {
   const controller = new AbortController();
