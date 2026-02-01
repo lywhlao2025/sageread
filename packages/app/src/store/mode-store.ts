@@ -12,10 +12,12 @@ interface ModeStore {
   setMode: (mode: AppMode | null) => void;
 }
 
+const isE2E = (import.meta.env.VITE_E2E as string | undefined) === "1";
+
 export const useModeStore = create<ModeStore>()(
   persist(
     (set) => ({
-      mode: null,
+      mode: "simple",
       hasHydrated: false,
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
       setMode: (mode) => set({ mode }),
@@ -28,9 +30,8 @@ export const useModeStore = create<ModeStore>()(
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
-        // If no mode persisted (first run), fall back to showing selection dialog.
-        if (state?.mode === undefined) {
-          state?.setMode(null);
+        if (!isE2E && state?.mode !== "simple") {
+          state?.setMode("simple");
         }
       },
     },

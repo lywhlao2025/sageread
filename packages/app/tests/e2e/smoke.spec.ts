@@ -9,6 +9,9 @@ async function ensureClassicMode(page: Parameters<typeof test>[0]["page"]) {
 }
 
 test("app boots and shows navigation", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("app-mode", JSON.stringify({ state: { mode: "classic" }, version: 0 }));
+  });
   await page.goto("/");
   await ensureClassicMode(page);
   const navLink = page.getByRole("link", { name: /图书馆|Library/i });
@@ -16,6 +19,9 @@ test("app boots and shows navigation", async ({ page }) => {
 });
 
 test("can navigate to chat page", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("app-mode", JSON.stringify({ state: { mode: "classic" }, version: 0 }));
+  });
   await page.goto("/");
   await ensureClassicMode(page);
   await page.getByRole("link", { name: /聊天|Chat/i }).click();
