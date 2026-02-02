@@ -258,9 +258,15 @@ export const useAnnotator = ({ bookId }: UseAnnotatorProps) => {
       }
       const anchorType = isText ? "txt" : "epub";
       const deviceId = await getPublicHighlightsDeviceId();
+      const bookTitle = bookData?.book?.title;
+      if (!bookTitle) {
+        console.warn("Skipping public highlight upload: missing book title.");
+        return;
+      }
       const payloadBase = {
         deviceId,
         bookKey: bookId,
+        bookTitle,
         anchorType,
         anchor: annotation.cfi,
         quote: annotation.text || selectionInfo.text,

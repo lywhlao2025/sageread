@@ -6,6 +6,7 @@ type PublicHighlightAnchorType = "epub" | "txt" | "pdf";
 export interface PublicHighlightRequest {
   deviceId: string;
   bookKey: string;
+  bookTitle: string;
   anchorType: PublicHighlightAnchorType;
   anchor: string;
   quote: string;
@@ -29,6 +30,7 @@ export interface PublicHighlightDeleteRequest {
 export interface PublicHighlightResponse {
   id: number;
   bookKey: string;
+  bookTitle?: string | null;
   anchorType: PublicHighlightAnchorType;
   anchor: string;
   sectionId?: string | null;
