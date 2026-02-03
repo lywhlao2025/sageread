@@ -3,6 +3,10 @@
 
 ## 🚗SageRead X
 
+官方介绍页：
+https://lywhlao2025.top/
+
+
 **一款支持 AI 对话的电子书阅读器**
 
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE) [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey)](https://github.com/yourusername/sageread) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/yourusername/sageread/pulls)
