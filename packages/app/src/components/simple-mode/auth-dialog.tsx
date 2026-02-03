@@ -104,7 +104,7 @@ export default function SimpleModeAuthDialog() {
       } catch (error) {
         console.warn("Failed to fetch quota:", error);
       }
-      toast.success(t("auth.success", "注册成功，已发放 1000 次免费额度"));
+      toast.success(t("auth.success", "注册成功，已发放 100 次免费额度"));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       toast.error(message || t("auth.fail", "注册失败"));
@@ -133,7 +133,7 @@ export default function SimpleModeAuthDialog() {
         </DialogHeader>
         <div className="space-y-4 px-6 pb-6 pt-2">
           <p className="text-sm text-muted-foreground">
-            {t("auth.subtitle", "注册后立即发放 1000 次免费额度，用完后暂不可用")}
+            {t("auth.subtitle", "注册后立即发放 100 次免费额度，用完后暂不可用")}
           </p>
           <div className="space-y-2">
             <label className="text-xs text-muted-foreground">{t("auth.phone.label", "手机号")}</label>
