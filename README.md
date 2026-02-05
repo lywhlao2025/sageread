@@ -17,10 +17,6 @@ https://lywhlao2025.top/
 SageRead X 是一款电子书阅读器，主要特点是可以在阅读时随时跟 AI 对话。
 你可以用它来读电子书，做笔记和高亮标注。不懂的地方直接问 AI，它会根据书籍内容给你解答。支持自定义 AI 提示词，可以让 AI 帮你总结、翻译或做其他事情。所有数据都存在本地，支持自己配置 AI 服务。
 
-## ✅ 测试流程
-提交前必须完成前端测试清单与关键用例回归，详见：
-- `docs/testing-workflow.md`
-
 ## 👨‍🏫关于
 本项目是从 `xincmm/sageread` fork 而来,[xincmm/sageread](https://github.com/xincmm/sageread) 长时间未更新，我们在其基础上持续迭代优化，欢迎更多小伙伴加入共建。
 
