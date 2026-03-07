@@ -19,7 +19,7 @@ import { toast } from "sonner";
 
 export default function UserMenu() {
   const t = useT();
-  const { token, phone, startSwitchUser } = useAuthStore();
+  const { token, phone, email, startSwitchUser } = useAuthStore();
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -62,11 +62,9 @@ export default function UserMenu() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" side="bottom" sideOffset={6} className="min-w-48">
           <DropdownMenuLabel>{t("user.menu.current", "当前用户")}</DropdownMenuLabel>
-          {phone ? (
-            <div className="px-2 pb-1 text-xs text-muted-foreground">{phone}</div>
-          ) : (
-            <div className="px-2 pb-1 text-xs text-muted-foreground">{t("user.menu.unknown", "未知用户")}</div>
-          )}
+          <div className="px-2 pb-1 text-xs text-muted-foreground">
+            {phone || email || t("user.menu.unknown", "未知用户")}
+          </div>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => setIsFeedbackOpen(true)}>
             {t("user.menu.feedback", "提交反馈")}

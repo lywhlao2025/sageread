@@ -3,7 +3,8 @@ import { fetch as fetchTauri } from "@tauri-apps/plugin-http";
 
 export interface AuthPayload {
   userId: number;
-  phone: string;
+  phone?: string | null;
+  email?: string | null;
   token: string;
 }
 
@@ -189,6 +190,17 @@ export async function sendSmsCode(phone: string): Promise<void> {
   );
 }
 
+export async function sendEmailCode(email: string): Promise<void> {
+  await requestJson<void>(
+    "/api/auth/email/send",
+    {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    },
+    false,
+  );
+}
+
 export async function registerUser(phone: string, code: string): Promise<AuthPayload> {
   return requestJson<AuthPayload>(
     "/api/auth/register",
@@ -200,12 +212,34 @@ export async function registerUser(phone: string, code: string): Promise<AuthPay
   );
 }
 
+export async function registerEmailUser(email: string, code: string): Promise<AuthPayload> {
+  return requestJson<AuthPayload>(
+    "/api/auth/register/email",
+    {
+      method: "POST",
+      body: JSON.stringify({ email, code }),
+    },
+    false,
+  );
+}
+
 export async function loginUser(phone: string, code: string): Promise<AuthPayload> {
   return requestJson<AuthPayload>(
     "/api/auth/login",
     {
       method: "POST",
       body: JSON.stringify({ phone, code }),
+    },
+    false,
+  );
+}
+
+export async function loginEmailUser(email: string, code: string): Promise<AuthPayload> {
+  return requestJson<AuthPayload>(
+    "/api/auth/login/email",
+    {
+      method: "POST",
+      body: JSON.stringify({ email, code }),
     },
     false,
   );
