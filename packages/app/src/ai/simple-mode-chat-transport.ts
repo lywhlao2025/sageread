@@ -186,7 +186,6 @@ export class SimpleModeChatTransport implements ChatTransport<UIMessage> {
           throw new Error(translate(locale, "quota.rateLimited", "请求过于频繁，请稍后再试"));
         }
         if (error.code === "UNAUTHORIZED" || error.code === "SESSION_EXPIRED") {
-          useAuthStore.getState().clearAuth();
           throw new Error(translate(locale, "auth.required", "请先注册后使用"));
         }
       }

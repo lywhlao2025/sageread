@@ -106,7 +106,9 @@ async function requestJson<T>(path: string, options: RequestInit, requireAuth = 
   if (!response.ok || !payload?.success) {
     const code = payload?.error?.code || `HTTP_${response.status}`;
     const message = payload?.error?.message || response.statusText || "Request failed";
-    throw new SimpleModeApiError(code, message);
+    const error = new SimpleModeApiError(code, message);
+    handleAuthInvalidation(error);
+    throw error;
   }
 
   return payload.data as T;
@@ -124,6 +126,12 @@ function buildAuthHeaders(headers: Record<string, string> = {}, requireAuth = fa
     ...headers,
     Authorization: `Bearer ${token}`,
   };
+}
+
+function handleAuthInvalidation(error: SimpleModeApiError): void {
+  if (error.code === "UNAUTHORIZED" || error.code === "SESSION_EXPIRED") {
+    useAuthStore.getState().clearAuth();
+  }
 }
 
 async function* parseSseStream(
@@ -301,12 +309,17 @@ export async function requestSimpleModeLlm(params: {
     if (!response.ok || !payload?.success) {
       const code = payload?.error?.code || `HTTP_${response.status}`;
       const message = payload?.error?.message || response.statusText || "Request failed";
-      throw new SimpleModeApiError(code, message);
+      const apiError = new SimpleModeApiError(code, message);
+      handleAuthInvalidation(apiError);
+      throw apiError;
     }
     return payload.data as SimpleModeLlmPayload;
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new SimpleModeApiError("TIMEOUT", "Request timed out");
+    }
+    if (error instanceof SimpleModeApiError) {
+      handleAuthInvalidation(error);
     }
     throw error;
   } finally {
@@ -358,7 +371,9 @@ export async function* streamSimpleModeLlm(params: {
     }
     const code = payload?.error?.code || `HTTP_${response.status}`;
     const message = payload?.error?.message || response.statusText || "Request failed";
-    throw new SimpleModeApiError(code, message);
+    const apiError = new SimpleModeApiError(code, message);
+    handleAuthInvalidation(apiError);
+    throw apiError;
   }
 
   for await (const { event, data } of parseSseStream(response, params.abortSignal)) {
@@ -373,7 +388,9 @@ export async function* streamSimpleModeLlm(params: {
     if (type === "error") {
       const code = payload.error?.code || "MODEL_ERROR";
       const message = payload.error?.message || "Stream failed";
-      throw new SimpleModeApiError(code, message);
+      const apiError = new SimpleModeApiError(code, message);
+      handleAuthInvalidation(apiError);
+      throw apiError;
     }
     yield { ...payload, type };
   }
