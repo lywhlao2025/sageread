@@ -3,7 +3,8 @@ import { fetch as fetchTauri } from "@tauri-apps/plugin-http";
 
 export interface AuthPayload {
   userId: number;
-  phone: string;
+  phone?: string | null;
+  email?: string | null;
   token: string;
 }
 
@@ -105,7 +106,9 @@ async function requestJson<T>(path: string, options: RequestInit, requireAuth = 
   if (!response.ok || !payload?.success) {
     const code = payload?.error?.code || `HTTP_${response.status}`;
     const message = payload?.error?.message || response.statusText || "Request failed";
-    throw new SimpleModeApiError(code, message);
+    const error = new SimpleModeApiError(code, message);
+    handleAuthInvalidation(error);
+    throw error;
   }
 
   return payload.data as T;
@@ -123,6 +126,12 @@ function buildAuthHeaders(headers: Record<string, string> = {}, requireAuth = fa
     ...headers,
     Authorization: `Bearer ${token}`,
   };
+}
+
+function handleAuthInvalidation(error: SimpleModeApiError): void {
+  if (error.code === "UNAUTHORIZED" || error.code === "SESSION_EXPIRED") {
+    useAuthStore.getState().clearAuth();
+  }
 }
 
 async function* parseSseStream(
@@ -189,6 +198,17 @@ export async function sendSmsCode(phone: string): Promise<void> {
   );
 }
 
+export async function sendEmailCode(email: string): Promise<void> {
+  await requestJson<void>(
+    "/api/auth/email/send",
+    {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    },
+    false,
+  );
+}
+
 export async function registerUser(phone: string, code: string): Promise<AuthPayload> {
   return requestJson<AuthPayload>(
     "/api/auth/register",
@@ -200,12 +220,34 @@ export async function registerUser(phone: string, code: string): Promise<AuthPay
   );
 }
 
+export async function registerEmailUser(email: string, code: string): Promise<AuthPayload> {
+  return requestJson<AuthPayload>(
+    "/api/auth/register/email",
+    {
+      method: "POST",
+      body: JSON.stringify({ email, code }),
+    },
+    false,
+  );
+}
+
 export async function loginUser(phone: string, code: string): Promise<AuthPayload> {
   return requestJson<AuthPayload>(
     "/api/auth/login",
     {
       method: "POST",
       body: JSON.stringify({ phone, code }),
+    },
+    false,
+  );
+}
+
+export async function loginEmailUser(email: string, code: string): Promise<AuthPayload> {
+  return requestJson<AuthPayload>(
+    "/api/auth/login/email",
+    {
+      method: "POST",
+      body: JSON.stringify({ email, code }),
     },
     false,
   );
@@ -267,12 +309,17 @@ export async function requestSimpleModeLlm(params: {
     if (!response.ok || !payload?.success) {
       const code = payload?.error?.code || `HTTP_${response.status}`;
       const message = payload?.error?.message || response.statusText || "Request failed";
-      throw new SimpleModeApiError(code, message);
+      const apiError = new SimpleModeApiError(code, message);
+      handleAuthInvalidation(apiError);
+      throw apiError;
     }
     return payload.data as SimpleModeLlmPayload;
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new SimpleModeApiError("TIMEOUT", "Request timed out");
+    }
+    if (error instanceof SimpleModeApiError) {
+      handleAuthInvalidation(error);
     }
     throw error;
   } finally {
@@ -324,7 +371,9 @@ export async function* streamSimpleModeLlm(params: {
     }
     const code = payload?.error?.code || `HTTP_${response.status}`;
     const message = payload?.error?.message || response.statusText || "Request failed";
-    throw new SimpleModeApiError(code, message);
+    const apiError = new SimpleModeApiError(code, message);
+    handleAuthInvalidation(apiError);
+    throw apiError;
   }
 
   for await (const { event, data } of parseSseStream(response, params.abortSignal)) {
@@ -339,7 +388,9 @@ export async function* streamSimpleModeLlm(params: {
     if (type === "error") {
       const code = payload.error?.code || "MODEL_ERROR";
       const message = payload.error?.message || "Stream failed";
-      throw new SimpleModeApiError(code, message);
+      const apiError = new SimpleModeApiError(code, message);
+      handleAuthInvalidation(apiError);
+      throw apiError;
     }
     yield { ...payload, type };
   }
