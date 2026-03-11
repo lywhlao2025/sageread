@@ -19,19 +19,19 @@ cd /Users/xxxx/Codes/sageread
 
 # 1. 修改版本号
 # 编辑 packages/app/src-tauri/tauri.conf.json
-# 将 "version": "0.1.0" 改为 "version": "0.1.1"
+# 将 "version": "2.0.5" 改为 "version": "2.0.6"
 
 # 2. 查看自上次发布以来的改动（可选）
-git log --oneline v0.1.0..HEAD
+git log --oneline v2.0.5..HEAD
 
 # 3. 提交版本变更
 git add .
-git commit -m "chore: bump version to 0.1.1"
+git commit -m "chore: bump version to 2.0.6"
 
 # 4. 创建并推送 tag
-git tag -a v0.1.1 -m "Release v0.1.1"
+git tag -a v2.0.6 -m "Release v2.0.6"
 git push origin main
-git push origin v0.1.1
+git push origin v2.0.6
 ```
 
 ---
@@ -223,4 +223,4 @@ https://github.com/xincmm/sageread/releases
 
 ---
 
-更新日期：2025-10-08
+更新日期：2026-03-11
