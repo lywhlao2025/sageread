@@ -42,6 +42,7 @@ export const usePagination = (bookId: string, containerRef: React.RefObject<HTML
   const swipeLockedRef = useRef(false);
   const lastIframeWheelAtRef = useRef(0);
   const SWIPE_THRESHOLD = 12; // px accumulated deltaX to flip
+  const SWIPE_THRESHOLD_Y = 6; // px accumulated deltaY to flip (mouse wheel is usually smaller)
   const SWIPE_TIMEOUT = 1200; // ms to reset accumulation
   const SWIPE_COOLDOWN = 600; // ms to prevent multi-flip per gesture
   const SWIPE_GESTURE_WINDOW = 900; // ms: treat a burst as one gesture
@@ -136,7 +137,7 @@ export const usePagination = (bookId: string, containerRef: React.RefObject<HTML
             }
             swipeAccumYRef.current += deltaY;
             if (now - lastSwipeFlipAtRef.current > SWIPE_COOLDOWN) {
-              if (swipeAccumYRef.current >= SWIPE_THRESHOLD) {
+              if (swipeAccumYRef.current >= SWIPE_THRESHOLD_Y) {
                 swipeAccumYRef.current = 0;
                 lastSwipeFlipAtRef.current = now;
                 swipeLockedRef.current = true;
@@ -145,7 +146,7 @@ export const usePagination = (bookId: string, containerRef: React.RefObject<HTML
                 }, SWIPE_GESTURE_WINDOW);
                 return viewPagination(getView(), globalViewSettings, "right");
               }
-              if (swipeAccumYRef.current <= -SWIPE_THRESHOLD) {
+              if (swipeAccumYRef.current <= -SWIPE_THRESHOLD_Y) {
                 swipeAccumYRef.current = 0;
                 lastSwipeFlipAtRef.current = now;
                 swipeLockedRef.current = true;
@@ -238,7 +239,7 @@ export const usePagination = (bookId: string, containerRef: React.RefObject<HTML
           }
           swipeAccumYRef.current += deltaY;
           if (now - lastSwipeFlipAtRef.current > SWIPE_COOLDOWN) {
-            if (swipeAccumYRef.current >= SWIPE_THRESHOLD) {
+            if (swipeAccumYRef.current >= SWIPE_THRESHOLD_Y) {
               swipeAccumYRef.current = 0;
               lastSwipeFlipAtRef.current = now;
               swipeLockedRef.current = true;
@@ -246,7 +247,7 @@ export const usePagination = (bookId: string, containerRef: React.RefObject<HTML
                 swipeLockedRef.current = false;
               }, SWIPE_GESTURE_WINDOW);
               viewPagination(getView(), globalViewSettings, "right");
-            } else if (swipeAccumYRef.current <= -SWIPE_THRESHOLD) {
+            } else if (swipeAccumYRef.current <= -SWIPE_THRESHOLD_Y) {
               swipeAccumYRef.current = 0;
               lastSwipeFlipAtRef.current = now;
               swipeLockedRef.current = true;
