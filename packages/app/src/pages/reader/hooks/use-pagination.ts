@@ -36,6 +36,7 @@ export const usePagination = (bookId: string, containerRef: React.RefObject<HTML
   const view = store.getState().view;
   const getView = () => store.getState().view;
   const swipeAccumXRef = useRef(0);
+  const swipeAccumYRef = useRef(0);
   const lastWheelEventAtRef = useRef(0);
   const lastSwipeFlipAtRef = useRef(0);
   const swipeLockedRef = useRef(false);
@@ -89,7 +90,10 @@ export const usePagination = (bookId: string, containerRef: React.RefObject<HTML
           const now = Date.now();
           lastIframeWheelAtRef.current = now;
           if (now - lastWheelEventAtRef.current > SWIPE_GESTURE_WINDOW) swipeLockedRef.current = false;
-          if (now - lastWheelEventAtRef.current > SWIPE_TIMEOUT) swipeAccumXRef.current = 0;
+          if (now - lastWheelEventAtRef.current > SWIPE_TIMEOUT) {
+            swipeAccumXRef.current = 0;
+            swipeAccumYRef.current = 0;
+          }
           lastWheelEventAtRef.current = now;
 
           // Paginated mode: treat wheel as horizontal swipe; ignore vertical delta to avoid mixed gestures.
@@ -123,11 +127,35 @@ export const usePagination = (bookId: string, containerRef: React.RefObject<HTML
               }
             }
           } else if (Math.abs(deltaY) > 0.5) {
-            // If it's essentially vertical, don't accumulate; keep it inert.
-            swipeAccumXRef.current = 0;
+            // Vertical wheel: flip pages in paginated mode.
+            if (swipeLockedRef.current) {
+              return;
+            }
+            if (swipeAccumYRef.current !== 0 && Math.sign(swipeAccumYRef.current) !== Math.sign(deltaY)) {
+              swipeAccumYRef.current = 0;
+            }
+            swipeAccumYRef.current += deltaY;
+            if (now - lastSwipeFlipAtRef.current > SWIPE_COOLDOWN) {
+              if (swipeAccumYRef.current >= SWIPE_THRESHOLD) {
+                swipeAccumYRef.current = 0;
+                lastSwipeFlipAtRef.current = now;
+                swipeLockedRef.current = true;
+                setTimeout(() => {
+                  swipeLockedRef.current = false;
+                }, SWIPE_GESTURE_WINDOW);
+                return viewPagination(getView(), globalViewSettings, "right");
+              }
+              if (swipeAccumYRef.current <= -SWIPE_THRESHOLD) {
+                swipeAccumYRef.current = 0;
+                lastSwipeFlipAtRef.current = now;
+                swipeLockedRef.current = true;
+                setTimeout(() => {
+                  swipeLockedRef.current = false;
+                }, SWIPE_GESTURE_WINDOW);
+                return viewPagination(getView(), globalViewSettings, "left");
+              }
+            }
           }
-
-          // Intentionally ignore vertical wheel in paginated mode.
         } else if (msg.data.type === "iframe-mouseup") {
           if (msg.data.button === 3) {
             view?.history.back();
@@ -165,7 +193,10 @@ export const usePagination = (bookId: string, containerRef: React.RefObject<HTML
         // Avoid double-processing when iframe already forwarded a wheel message for the same gesture.
         if (now - lastIframeWheelAtRef.current < 80) return;
         if (now - lastWheelEventAtRef.current > SWIPE_GESTURE_WINDOW) swipeLockedRef.current = false;
-        if (now - lastWheelEventAtRef.current > SWIPE_TIMEOUT) swipeAccumXRef.current = 0;
+        if (now - lastWheelEventAtRef.current > SWIPE_TIMEOUT) {
+          swipeAccumXRef.current = 0;
+          swipeAccumYRef.current = 0;
+        }
         lastWheelEventAtRef.current = now;
 
         // Prevent accidental vertical scrolling of the outer container/window in paginated mode.
@@ -199,7 +230,32 @@ export const usePagination = (bookId: string, containerRef: React.RefObject<HTML
             }
           }
         } else if (Math.abs(deltaY) > 0.5) {
-          swipeAccumXRef.current = 0;
+          if (swipeLockedRef.current) {
+            return;
+          }
+          if (swipeAccumYRef.current !== 0 && Math.sign(swipeAccumYRef.current) !== Math.sign(deltaY)) {
+            swipeAccumYRef.current = 0;
+          }
+          swipeAccumYRef.current += deltaY;
+          if (now - lastSwipeFlipAtRef.current > SWIPE_COOLDOWN) {
+            if (swipeAccumYRef.current >= SWIPE_THRESHOLD) {
+              swipeAccumYRef.current = 0;
+              lastSwipeFlipAtRef.current = now;
+              swipeLockedRef.current = true;
+              setTimeout(() => {
+                swipeLockedRef.current = false;
+              }, SWIPE_GESTURE_WINDOW);
+              viewPagination(getView(), globalViewSettings, "right");
+            } else if (swipeAccumYRef.current <= -SWIPE_THRESHOLD) {
+              swipeAccumYRef.current = 0;
+              lastSwipeFlipAtRef.current = now;
+              swipeLockedRef.current = true;
+              setTimeout(() => {
+                swipeLockedRef.current = false;
+              }, SWIPE_GESTURE_WINDOW);
+              viewPagination(getView(), globalViewSettings, "left");
+            }
+          }
         }
       }
     }
