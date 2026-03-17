@@ -9,12 +9,19 @@
     "preview": "pnpm --filter app preview",
     "tauri": "cd packages/app && pnpm tauri",
     "build:foliate": "pnpm --filter foliate-js build",
-    "build:app-tabs": "pnpm --filter app-tabs build"
+    "build:app-tabs": "pnpm --filter app-tabs build",
+    "format": "node -e \"console.log('No repository-wide formatter gate configured; run biome format --write on touched files.')\"",
+    "lint": "pnpm --filter app typecheck",
+    "build:ci": "pnpm --filter app build",
+    "test:ci": "pnpm --filter app test",
+    "check": "pnpm run format && pnpm run lint && pnpm run build:ci && pnpm run test:ci",
+    "verify": "bash scripts/verify-harness.sh"
   },
   "devDependencies": {
     "typescript": "~5.8.3"
   },
   "dependencies": {
+    "@babel/runtime": "^7.28.3",
     "@biomejs/biome": "1.9.4",
     "keepalive-for-react": "^4.0.3"
   }
